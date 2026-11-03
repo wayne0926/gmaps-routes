@@ -6,7 +6,7 @@ requires-python = ">=3.10"
 dependencies = ["requests"]
 
 [project.optional-dependencies]
-mcp = ["mcp>=1.10"]
+mcp = ["mcp>=1.10,<3"]
 test = ["pytest"]
 
 [project.scripts]
