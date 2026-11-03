@@ -371,6 +371,15 @@ def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRAN
                  "maps_url": _maps_url(origin, destination, intermediates, mode)}
     if output in ("both", "summary"):
         out["routes"] = S.summarize_routes(raw, default_tz=default_tz().key)
+        if mode == "TRANSIT" and not body.get("arrivalTime"):
+            # API 'duration' excludes waiting for the vehicle; add request-time -> final arrival
+            start = (datetime.fromisoformat(body["departureTime"].replace("Z", "+00:00"))
+                     if body.get("departureTime") else datetime.now(timezone.utc))
+            for r in out["routes"]:
+                if r.get("last_arrival_time"):
+                    end = datetime.fromisoformat(r["last_arrival_time"].replace("Z", "+00:00"))
+                    secs = max(0.0, (end - start).total_seconds())
+                    r["door_to_door_s"], r["door_to_door_text"] = secs, S.fmt_duration(secs)
         if not raw.get("routes"):
             out["warning"] = "No route found for this request."
     if output in ("both", "raw"):
@@ -396,8 +405,11 @@ def compare_modes(origin, destination, *, modes=("TRANSIT", "BICYCLE", "WALK", "
                           **({"raw": r["raw"]} if "raw" in r else {}), **({"notes": r["notes"]} if r["notes"] else {})}
         except (GoogleMapsError, ValueError) as e:
             results[m] = {"error": str(e)}
-    ranked = sorted(((m, v["best"]["duration_s"]) for m, v in results.items()
-                     if v.get("best") and v["best"].get("duration_s") is not None), key=lambda x: x[1])
+    def _total(b: dict) -> float | None:  # transit: include waiting time
+        return b.get("door_to_door_s", b.get("duration_s"))
+
+    ranked = sorted(((m, _total(v["best"])) for m, v in results.items()
+                     if v.get("best") and _total(v["best"]) is not None), key=lambda x: x[1])
     return {"fastest_first": [m for m, _ in ranked], "modes": results, "notes": notes}
 
 
