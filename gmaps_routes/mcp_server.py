@@ -134,12 +134,13 @@ def search_places(
 
 @mcp.tool(**_TOOL)
 def geocode(query: str | None = None, latlng: str | None = None, place_id: str | None = None,
-            language: str | None = None, region: str | None = None,
+            language: str | None = None, region: str | None = None, near: str | None = None,
             format: str = "text") -> str:
     """Address -> coordinates (query), coordinates -> address (latlng='lat,lng'), or
-    place_id -> address. Routing tools accept addresses directly; use this to check one."""
+    place_id -> address. near='lat,lng' biases ambiguous names ('Hauptbahnhof') to that area.
+    Routing tools accept addresses directly; use this to check one."""
     return _out(C.geocode, query, latlng=latlng, place_id=place_id, language=language,
-                region=region, format=format)
+                region=region, near=near, format=format)
 
 
 @mcp.tool(**_TOOL)
@@ -159,13 +160,17 @@ def station_board(station: str, time: str | None = None, arrivals: bool = False,
 @mcp.tool(**_TOOL)
 def live_connections(origin: str, destination: str, departure_time: str | None = None,
                      arrival_time: str | None = None, max_results: int = 4,
-                     max_transfers: int | None = None, format: str = "text") -> str:
+                     max_transfers: int | None = None, modes: list[str] | None = None,
+                     format: str = "text") -> str:
     """LIVE journey planning with real-time delays, cancellations and platforms (Transitous /
     MOTIS: DELFI real-time in Germany, many feeds Europe-wide). Each leg shows scheduled time
-    and +delay. No fares. Places: names, 'lat,lng' or DHID."""
+    and +delay. No fares. Places: names, 'lat,lng' or DHID. modes: TRAIN, LOCAL_TRAIN (no
+    ICE/IC), LIGHT_RAIL, BUS, COACH, FERRY, FLIGHT or MOTIS modes; default all ground modes
+    (no flights). Timetables only as far as operators published them: for dates weeks ahead
+    prefer compute_route."""
     return _out(L.live_connections, origin, destination, departure_time=departure_time,
                 arrival_time=arrival_time, max_results=max_results,
-                max_transfers=max_transfers, format=format)
+                max_transfers=max_transfers, modes=modes, format=format)
 
 
 def main() -> None:

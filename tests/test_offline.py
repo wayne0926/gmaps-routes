@@ -213,3 +213,19 @@ def test_openboards_real_response():
     res["_now"] = datetime(2026, 11, 3, 11, 10, tzinfo=timezone.utc)
     txt = L._board_text(res)
     assert txt.count("Due to major renovation work") == 1  # long notices become footnotes
+
+
+def test_match_score_and_24h():
+    from gmaps_routes import live as L
+    assert L.match_score("Fantasiebahnhof Nirgendwo", "Falkensee, Bahnhof") < 0.35
+    assert L.match_score("Köln Hbf", "Köln Hauptbahnhof") > 0.8
+    assert L.match_score("Narvik", "Narvik station") > 0.8
+    assert R.to_24h("12:00 – 8:00 PM") == "12:00–20:00"
+    assert R.to_24h("11:30 AM – 3:30 PM, 4:30 – 10:00 PM") == "11:30–15:30, 16:30–22:00"
+    assert R.to_24h("Closed") == "Closed"
+
+
+def test_dates_shown_when_day_differs():
+    ref = datetime(2026, 11, 3, 10, 0, tzinfo=timezone.utc)
+    assert S.hhmm(datetime(2026, 12, 21, 4, 45, tzinfo=timezone.utc), "Europe/Berlin", ref) == "Mon 21.12. 05:45"
+    assert S.hhmm(datetime(2026, 11, 3, 11, 0, tzinfo=timezone.utc), "Europe/Berlin", ref) == "12:00"

@@ -81,7 +81,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     g = sub.add_parser("geocode")
     g.add_argument("query", nargs="?"); g.add_argument("--latlng"); g.add_argument("--place-id")
-    g.add_argument("--components"); g.add_argument("--dry-run", action="store_true")
+    g.add_argument("--components"); g.add_argument("--near", help="lat,lng bias")
+    g.add_argument("--dry-run", action="store_true")
     _fmt(g)
 
     b = sub.add_parser("board", help="LIVE station departures/arrivals (DB OpenBoards / Transitous)")
@@ -95,6 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     lv.add_argument("origin"); lv.add_argument("destination")
     lv.add_argument("--depart"); lv.add_argument("--arrive")
     lv.add_argument("--max", type=int, default=4); lv.add_argument("--max-transfers", type=int)
+    lv.add_argument("--modes", nargs="*", help="TRAIN LOCAL_TRAIN LIGHT_RAIL BUS COACH FERRY FLIGHT ...")
     _fmt(lv)
 
     d = sub.add_parser("decode", help="decode an encoded polyline")
@@ -134,7 +136,7 @@ def run(a):
                                dry_run=a.dry_run)
     if a.cmd == "geocode":
         return C.geocode(a.query, latlng=a.latlng, place_id=a.place_id, language=a.lang,
-                         region=a.region, components=a.components, format=a.format,
+                         region=a.region, components=a.components, near=a.near, format=a.format,
                          dry_run=a.dry_run)
     if a.cmd == "board":
         return L.station_board(a.station, time=a.time, arrivals=a.arrivals, duration_min=a.minutes,
@@ -143,7 +145,7 @@ def run(a):
     if a.cmd == "live":
         return L.live_connections(a.origin, a.destination, departure_time=a.depart,
                                   arrival_time=a.arrive, max_results=a.max,
-                                  max_transfers=a.max_transfers, format=a.format)
+                                  max_transfers=a.max_transfers, modes=a.modes, format=a.format)
     if a.cmd == "decode":
         return decode_polyline(a.polyline)
     raise SystemExit(2)

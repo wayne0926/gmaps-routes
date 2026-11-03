@@ -342,18 +342,27 @@ def _send(method: str, url: str, *, headers: dict | None = None, json: Any = Non
 
 # --------------------------------------------------------------------------- routes
 def maps_url(origin: Any, destination: Any, intermediates: list | None, mode: str,
-             depart: datetime | None = None, arrive: datetime | None = None) -> str:
-    def txt(s: Any) -> tuple[str, str | None]:
+             depart: datetime | None = None, arrive: datetime | None = None,
+             raw: dict | None = None) -> str:
+    legs = ((raw or {}).get("routes") or [{}])[0].get("legs") or []
+
+    def ll_of(loc) -> str | None:
+        ll = (loc or {}).get("latLng")
+        return f"{ll['latitude']},{ll['longitude']}" if ll else None
+    ends = {"o": ll_of(legs[0].get("startLocation")) if legs else None,
+            "d": ll_of(legs[-1].get("endLocation")) if legs else None}
+
+    def txt(s: Any, which: str = "") -> tuple[str, str | None]:
         w = waypoint(s)
-        if "placeId" in w:
-            return _label(s), w["placeId"]
+        if "placeId" in w:  # Maps URLs need readable text next to *_place_id
+            return ends.get(which) or _label(s), w["placeId"]
         if "location" in w:
             ll = w["location"]["latLng"]
             return f"{ll['latitude']},{ll['longitude']}", None
         return w.get("address", ""), None
 
-    o, opid = txt(origin)
-    d, dpid = txt(destination)
+    o, opid = txt(origin, "o")
+    d, dpid = txt(destination, "d")
     q = {"api": "1", "origin": o, "destination": d,
          "travelmode": {"TRANSIT": "transit", "BICYCLE": "bicycling", "WALK": "walking",
                         "DRIVE": "driving", "TWO_WHEELER": "two-wheeler"}[mode]}
@@ -683,10 +692,12 @@ def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRAN
                                 with_steps=detail == "steps",
                                 transit_modes=opts.get("transit_modes"), otz=otz, dtz=dtz)
     notes += more
+    if (arr or dep) and (arr or dep) < now - timedelta(minutes=10):
+        notes.append("requested time is in the past")
     if max_routes:
         routes = routes[:max_routes]
     res = {"travel_mode": mode, "routes": routes, "notes": notes,
-           "maps_url": maps_url(origin, destination, intermediates, mode),
+           "maps_url": maps_url(origin, destination, intermediates, mode, raw=raw),
            "_tz": tz,
            "_query": {"origin": _label(origin), "destination": _label(destination),
                       "via": [_label(i) for i in intermediates or []], "now": now,
@@ -952,7 +963,8 @@ def compute_route_matrix(origins: list, destinations: list, *, travel_mode="TRAN
 
 # --------------------------------------------------------------------------- geocode
 def geocode(query: str | None = None, *, latlng: str | None = None, place_id: str | None = None,
-            language=None, region=None, components=None, format="text", dry_run=False):
+            language=None, region=None, components=None, near: str | None = None,
+            format="text", dry_run=False):
     """Forward (query), reverse (latlng='lat,lng') or place_id lookup (Geocoding API)."""
     _check_format(format)
     if sum(x is not None for x in (query, latlng, place_id)) != 1:
@@ -971,6 +983,12 @@ def geocode(query: str | None = None, *, latlng: str | None = None, place_id: st
         params["region"] = region
     if components:
         params["components"] = components
+    if near:  # bias (not restrict) to a ~25 km box around 'lat,lng'
+        m = _LATLNG.match(near)
+        if not m:
+            raise ValueError("near must be 'lat,lng'")
+        la, lo = float(m.group(1)), float(m.group(2))
+        params["bounds"] = f"{la - 0.25},{lo - 0.35}|{la + 0.25},{lo + 0.35}"
     if dry_run:
         return {"url": GEOCODE_URL, "params": params}
     raw = _send("GET", GEOCODE_URL, params=params, key_in="param")
@@ -1030,5 +1048,6 @@ def search_places(text: str, *, near: str | None = None, radius_m: float = 3000,
     if format == "raw":
         return raw
     res = {"query": text, "places": [S.summarize_place(p, center) for p in raw.get("places", [])],
-           **({"open_now": True} if open_now else {})}
+           **({"open_now": True} if open_now else {}),
+           **({"min_rating": min_rating} if min_rating else {})}
     return R.places_text(res, default_tz()) if format == "text" else res

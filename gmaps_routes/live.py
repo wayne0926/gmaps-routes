@@ -60,15 +60,48 @@ def _http(method: str, url: str, *, params=None, json=None, headers=None, secret
 _stop_cache: dict[tuple, dict] = {}
 
 
-def find_stop(query: str, near: str | None = None) -> dict:
-    """-> {name, id (Transitous stop id), dhid, eva, lat, lon, tz}.  Accepts a name, a DHID
-    ('de:05314:61101'), an EVA number ('8000044') or 'lat,lng' (nearest stop)."""
+_GENERIC = re.compile(r"\b(hbf|hauptbahnhof|bahnhof|bf|station|stasjon|stazione|gare|"
+                      r"estaci[oó]n|dworzec|nádraží|central|centraal|zentrum)\b\.?", re.I)
+
+
+def _norm(s: str) -> str:
+    import unicodedata
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9 ]+", " ", s).strip()
+
+
+def match_score(query: str, name: str) -> float:
+    """0..1 similarity of a typed place and a resolved stop name (diacritics/case-insensitive;
+    the query's significant words must appear in the name)."""
+    from difflib import SequenceMatcher
+    q, n = _norm(query), _norm(name)
+    if not q or not n:
+        return 0.0
+    words = [w for w in _norm(_GENERIC.sub(" ", query)).split() if len(w) > 2] or q.split()
+    hit = sum(1 for w in words if w in n) / len(words)
+    # significant words dominate; raw string similarity only breaks ties ('Falkensee, Bahnhof'
+    # is ~0.56 similar to 'Fantasiebahnhof Nirgendwo' but shares no real word)
+    return round(0.8 * hit + 0.2 * SequenceMatcher(None, q, n).ratio(), 3)
+
+
+def _area(r: dict) -> str | None:
+    for a in r.get("areas") or []:
+        if a.get("default") or a.get("matched"):
+            return a.get("name")
+    return None
+
+
+def find_stop(query: str, near: str | None = None, prefer_rail: bool = False) -> dict:
+    """-> {name, id (Transitous stop id), dhid, eva, lat, lon, tz, area, confidence}.
+    Accepts a name, a DHID ('de:05314:61101'), an EVA number ('8000044') or 'lat,lng'
+    (nearest stop).  prefer_rail: rank stops served by trains first (for rail boards)."""
     q = str(query).strip()
     if _EVA.match(q):
-        return {"name": q, "eva": q}
+        return {"name": q, "eva": q, "confidence": 1.0, "by_id": True}
     if m := _DHID.fullmatch(q):
-        return {"name": q, "dhid": m.group(1), "id": f"de-DELFI_{m.group(1)}"}
-    key = (q.lower(), near)
+        return {"name": q, "dhid": m.group(1), "id": f"de-DELFI_{m.group(1)}", "confidence": 1.0,
+                "by_id": True}
+    key = (q.lower(), near, prefer_rail)
     if key in _stop_cache:
         return _stop_cache[key]
     params = {"text": q, "type": "STOP"}
@@ -83,6 +116,12 @@ def find_stop(query: str, near: str | None = None) -> dict:
     stops = [r for r in res if r.get("type") == "STOP"] or res
     if not stops:
         raise LiveError(f"no stop found for {q!r}")
+    if not ll:  # rank: name similarity, then rail service (for rail boards), then API order
+        def rank(ir):
+            i, r = ir
+            rail = bool(set(r.get("modes") or []) & _RAIL)
+            return -(match_score(q, r.get("name", "")) + (0.3 if prefer_rail and rail else 0)), i
+        stops = [r for _, r in sorted(enumerate(stops[:10]), key=rank)] + stops[10:]
     best = stops[0]
     # DB boards need a German DHID; the top hit can be a foreign feed's copy of the station
     # (e.g. Bonn Hbf from SNCB): take the DELFI twin nearby if there is one.
@@ -94,13 +133,30 @@ def find_stop(query: str, near: str | None = None) -> dict:
                 break
     m = _DHID.search(best.get("id", ""))
     out = {"name": best.get("name"), "id": best.get("id"), "dhid": m.group(1) if m else None,
-           "lat": best.get("lat"), "lon": best.get("lon"), "tz": best.get("tz")}
+           "lat": best.get("lat"), "lon": best.get("lon"), "tz": best.get("tz"),
+           "area": _area(best), "query": q,
+           "confidence": 1.0 if ll else round(match_score(q, best.get("name", "")), 2)}
     if not out["dhid"] and (best.get("tz") or "").startswith("Europe/Berlin"):
         out["dhid"] = _dhid_via_stoptimes(out["id"])
     if out["dhid"] and not out["id"].startswith("de-DELFI_"):
         out["delfi_id"] = f"de-DELFI_{out['dhid']}"
     _stop_cache[key] = out
     return out
+
+
+def resolved_note(stop: dict) -> str | None:
+    """'X' -> resolved name (area); flags low-confidence matches."""
+    if stop.get("by_id") or not stop.get("query"):
+        return None
+    name = stop.get("name") or "?"
+    where = f" ({stop['area']})" if stop.get("area") and stop["area"] not in name else ""
+    conf = stop.get("confidence", 1.0)
+    if conf < 0.5:
+        return (f"⚠ '{stop['query']}' matched only weakly → {name}{where}; probably not what you "
+                "meant: give the full station name with the city")
+    if _norm(stop["query"]) != _norm(name) or where:
+        return f"'{stop['query']}' → {name}{where}"
+    return None
 
 
 def _dhid_via_stoptimes(stop_id: str) -> str | None:
@@ -142,7 +198,7 @@ def _platform(place: dict) -> str | None:
 
 
 def _clock(dt: datetime | None, tz: str, ref: datetime) -> str:
-    return S.hhmm(dt, tz, ref) or "?"
+    return S.hhmm(dt, tz, ref, with_date=True) or "?"
 
 
 def _delay_txt(d: int | None) -> str:
@@ -162,7 +218,11 @@ def station_board(station: str, *, time: str | None = None, arrivals: bool = Fal
         raise ValueError("source must be auto, db or transitous")
     now = datetime.now(timezone.utc)
     t0 = C.parse_time(time) or now
-    stop = find_stop(station)
+    stop = find_stop(station, prefer_rail=not all_modes)
+    if stop.get("confidence", 1.0) < 0.35:
+        raise LiveError(f"no station matching {station!r} (closest: {stop.get('name')}"
+                        f"{', ' + stop['area'] if stop.get('area') else ''}); give the full "
+                        "station name with the city, a DHID or an EVA number")
     keys = db_keys()
     use_db = source == "db" or (source == "auto" and keys and not all_modes
                                 and (stop.get("dhid") or stop.get("eva")))
@@ -176,6 +236,11 @@ def station_board(station: str, *, time: str | None = None, arrivals: bool = Fal
         res = _transitous_board(stop, t0, arrivals, max_results, all_modes)
         if source == "auto" and not keys and not all_modes:
             res["notes"].append("DB keys not configured: board from Transitous (DELFI real-time)")
+    rn = resolved_note(stop)
+    if rn:
+        res["notes"].insert(0, rn)
+    if C.parse_time(time) and t0 < now - timedelta(minutes=10):
+        res["notes"].append("requested time is in the past")
     res["_now"] = now
     if format == "raw":
         return res["_raw"]
@@ -263,8 +328,12 @@ def parse_db_board(raw: dict, stop: dict, arrivals: bool, max_results: int,
     out.sort(key=lambda e: e.get("_sched") or e.get("_time"))
     out = out[:max_results]
     station_msgs = [msgs[i] for i in raw.get("disruptionCommunications") or [] if i in msgs]
-    return {"station": stop.get("name") or names.get((raw.get("meta") or {}).get(
-                "consideredStopPlaces", [None])[0]), "kind": "arrivals" if arrivals else "departures",
+    station = stop.get("name")
+    if stop.get("by_id") or not station:  # EVA/DHID input: use DB's name for the station
+        eva = stop.get("eva") or next((e.get("evaNumber") for e in raw.get(
+            "arrivals" if arrivals else "departures", []) if e.get("evaNumber")), None)
+        station = names.get(eva) or station
+    return {"station": station or stop.get("name"), "kind": "arrivals" if arrivals else "departures",
             "source": "DB OpenBoards", "tz": "Europe/Berlin", "entries": out,
             "station_messages": station_msgs or None, "notes": [], "_raw": raw}
 
@@ -361,33 +430,56 @@ def _board_text(res: dict) -> str:
 
 
 # --------------------------------------------------------------------------- journeys
-def _place(spec: str) -> tuple[str, str]:
-    """-> (Transitous place param, label).  'lat,lng' as is; else geocode (any type)."""
+def _place(spec: str) -> tuple[str, str, str | None]:
+    """-> (Transitous place param, label, resolution note).  'lat,lng'/DHID as is; else
+    geocode (any type), picking the best name match among the top hits."""
     s = str(spec).strip()
     if m := C._LATLNG.match(s):
-        return f"{m.group(1)},{m.group(2)}", s
+        return f"{m.group(1)},{m.group(2)}", s, None
     if m := _DHID.fullmatch(s):
-        return f"de-DELFI_{m.group(1)}", s
+        return f"de-DELFI_{m.group(1)}", s, None
     res = _http("GET", f"{TRANSITOUS}/v1/geocode", params={"text": s})
     if not res:
         raise LiveError(f"place not found: {s!r}")
-    r = res[0]
+    r = sorted(enumerate(res[:8]), key=lambda ir: (-match_score(s, ir[1].get("name", "")), ir[0]))[0][1]
+    name = r.get("name") or s
+    note = resolved_note({"query": s, "name": name, "area": _area(r),
+                          "confidence": match_score(s, name)})
+    label = f"{name} ({_area(r)})" if _area(r) and _area(r) not in name else name
     if r.get("type") == "STOP" and r.get("id"):
-        return r["id"], r.get("name") or s
-    return f"{r['lat']},{r['lon']}", r.get("name") or s
+        return r["id"], label, note
+    return f"{r['lat']},{r['lon']}", label, note
+
+
+# Everything but flights (MOTIS mode names); pass modes=[..., "AIRPLANE"] to allow them.
+GROUND_MODES = ("RAIL", "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL", "REGIONAL_FAST_RAIL",
+                "REGIONAL_RAIL", "SUBURBAN", "METRO", "SUBWAY", "TRAM", "BUS", "COACH", "FERRY",
+                "FUNICULAR", "AERIAL_LIFT", "CABLE_CAR", "OTHER")
+_MODE_GROUPS = {"TRAIN": ("RAIL", "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL",
+                          "REGIONAL_FAST_RAIL", "REGIONAL_RAIL", "SUBURBAN"),
+                "LOCAL_TRAIN": ("REGIONAL_FAST_RAIL", "REGIONAL_RAIL", "SUBURBAN"),
+                "LIGHT_RAIL": ("TRAM", "SUBWAY", "METRO"), "FLIGHT": ("AIRPLANE",)}
 
 
 def live_connections(origin: str, destination: str, *, departure_time: str | None = None,
                      arrival_time: str | None = None, max_results: int = 4,
-                     max_transfers: int | None = None, format: str = "text"):
-    """Journey planning with real-time delays and platforms (Transitous / MOTIS)."""
+                     max_transfers: int | None = None, modes: list[str] | None = None,
+                     format: str = "text"):
+    """Journey planning with real-time delays and platforms (Transitous / MOTIS).
+    modes: MOTIS modes or groups TRAIN / LOCAL_TRAIN / LIGHT_RAIL / BUS / FLIGHT ...;
+    default = every ground mode (no flights)."""
     C._check_format(format)
     if departure_time and arrival_time:
         raise ValueError("departure_time and arrival_time are mutually exclusive")
-    o, olab = _place(origin)
-    d, dlab = _place(destination)
+    o, olab, on = _place(origin)
+    d, dlab, dn = _place(destination)
     t = C.parse_time(arrival_time or departure_time)
-    params = {"fromPlace": o, "toPlace": d, "numItineraries": max(1, min(int(max_results), 10))}
+    now0 = datetime.now(timezone.utc)
+    tm: list[str] = []
+    for m_ in (modes or GROUND_MODES):
+        tm += list(_MODE_GROUPS.get(m_.upper(), (m_.upper(),)))
+    params = {"fromPlace": o, "toPlace": d, "numItineraries": max(1, min(int(max_results), 10)),
+              "transitModes": ",".join(dict.fromkeys(tm))}
     if t:
         params["time"] = t.strftime("%Y-%m-%dT%H:%M:%SZ")
     if arrival_time:
@@ -436,8 +528,23 @@ def live_connections(origin: str, destination: str, *, departure_time: str | Non
                     "duration_s": it.get("duration"), "transfers": it.get("transfers"),
                     "legs": legs, **({"suspect_realtime": True} if suspect else {})})
     its.sort(key=lambda i: bool(i.get("suspect_realtime")))  # doubtful options last
-    res = {"origin": olab, "destination": dlab, "itineraries": its, "notes": [ATTRIB,
-           "no fares (use compute_route for Google's fare estimate)"], "_now": now}
+    notes = [n for n in (on, dn) if n]
+    ref = t or now0
+    if t and t < now0 - timedelta(minutes=10):
+        notes.append("requested time is in the past")
+    if its:
+        gap = ((its[0]["_start"] - ref) if not arrival_time else (ref - its[0]["_end"]))
+        if gap > timedelta(hours=4):
+            notes.append(f"⚠ first option is {S.fmt_duration(gap.total_seconds())} "
+                         f"{'after' if not arrival_time else 'before'} the requested time: the "
+                         "feed may lack trips for that day (e.g. after a timetable change); "
+                         "cross-check with compute_route")
+    if t and t > now0 + timedelta(days=21):
+        notes.append("⚠ far ahead: Transitous only has timetables the operators already "
+                     "published (DB data typically ends at the December timetable change); "
+                     "compute_route (Google) is more complete for future dates")
+    notes += [ATTRIB, "no fares (use compute_route for Google's fare estimate)"]
+    res = {"origin": olab, "destination": dlab, "itineraries": its, "notes": notes, "_now": now}
     if format == "json":
         def fin(o):
             if isinstance(o, list):

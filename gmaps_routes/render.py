@@ -1,6 +1,7 @@
 """Compact plain-text rendering (token-cheap; what the MCP tools return by default)."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
 from .summary import _ALIASES, fmt_distance as D, fmt_duration as T, hhmm, zone
@@ -162,10 +163,29 @@ def matrix_text(res: dict) -> str:
     return "\n".join(lines)
 
 
+def to_24h(s: str) -> str:
+    """'12:00 – 8:00 PM' / '11:30 AM – 3:30 PM' -> '12:00–20:00' / '11:30–15:30'.  A start
+    time without AM/PM inherits the end's (Google writes '9:00 – 11:00 AM')."""
+    def conv(h: str, m: str, ap: str | None) -> str:
+        h_ = int(h)
+        if ap:
+            h_ = h_ % 12 + (12 if ap.upper() == "PM" else 0)
+        return f"{h_:02d}:{m}"
+
+    def rng(mo: re.Match) -> str:
+        h1, m1, a1, h2, m2, a2 = mo.groups()
+        return f"{conv(h1, m1, a1 or a2)}–{conv(h2, m2, a2)}"
+    s = s.replace("\u202f", " ").replace("\u2009", " ")
+    s = re.sub(r"(\d{1,2}):(\d{2})\s*(AM|PM)?\s*[–-]\s*(\d{1,2}):(\d{2})\s*(AM|PM)?", rng, s)
+    return re.sub(r"(\d{1,2}):(\d{2})\s*(AM|PM)", lambda m: conv(*m.groups()), s)
+
+
 def places_text(res: dict, tz: str = "Europe/Berlin") -> str:
     if not res["places"]:
         return f"No places found for {res['query']!r}."
-    lines = ["(filtered: open now)"] if res.get("open_now") else []
+    filt = [f for f in ("open now" if res.get("open_now") else None,
+                        f"rating ≥ {res['min_rating']}" if res.get("min_rating") else None) if f]
+    lines = [f"(filtered: {', '.join(filt)})"] if filt else []
     for i, p in enumerate(res["places"], 1):
         bits = [f"{i}. {p.get('name')}", p.get("address")]
         if p.get("rating") is not None:
@@ -183,7 +203,7 @@ def places_text(res: dict, tz: str = "Europe/Berlin") -> str:
                 lines.append(f"   {k}: {p[k]}")
         if p.get("hours"):  # weekdayDescriptions: Monday first; text shows today only
             today = p["hours"][datetime.now(zone(tz)).weekday() % len(p["hours"])]
-            lines.append(f"   today: {today.split(': ', 1)[-1]}")
+            lines.append(f"   today: {to_24h(today.split(': ', 1)[-1])}")
     return "\n".join(lines)
 
 

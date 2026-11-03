@@ -68,7 +68,7 @@ def hhmm(dt: datetime | None, tz: str, ref: datetime | None = None, with_date: b
     z = zone(tz)
     d = dt.astimezone(z)
     if ref is not None and ref.astimezone(z).date() != d.date():
-        return d.strftime("%a %d.%m. %H:%M" if with_date else "%a %H:%M")
+        return d.strftime("%a %d.%m. %H:%M")  # weekday alone is ambiguous weeks ahead
     return d.strftime("%H:%M")
 
 
