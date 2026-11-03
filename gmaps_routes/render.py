@@ -88,9 +88,11 @@ def routes_text(res: dict) -> str:
             lines.append(f"   optimized stop order: {r['optimized_order']}")
         for w in r.get("warnings", []):
             lines.append(f"   ⚠ {w}")
-        for s in r.get("steps", []):
+        for s in (r.get("steps", []) if i == 1 else []):  # steps for the best option only
             if s.get("instruction") or s.get("mode") == "TRANSIT":
                 lines.append(f"   - {s.get('instruction') or s.get('mode')} ({D(s.get('distance_m'))}, {T(s.get('duration_s'))})")
+        if i > 1 and r.get("steps"):
+            lines.append("   (steps: see format=json)")
         if r.get("polyline"):
             lines.append(f"   polyline: {r['polyline'].get('encodedPolyline', '(geojson in JSON output)')}")
     for n in res.get("notes", []):

@@ -476,17 +476,41 @@ def _partial_waypoints(raw: dict, body: dict) -> list[tuple[str, int | None, str
     return out
 
 
+_known_partial: dict[tuple[str, str | None], dict] = {}
+
+
+def _fix_note(text: str, p: dict) -> str:
+    return (f"'{text}' → {p['name']}, {p['address']} (route geocoder matched it only "
+            "partially; resolved via Places)")
+
+
+def _apply_known(body: dict, lang: str | None) -> tuple[dict, list[str]]:
+    if not _known_partial:
+        return body, []
+    body, notes = copy.deepcopy(body), []
+    ws = [body["origin"], body["destination"], *(body.get("intermediates") or [])]
+    for w in ws:
+        p = _known_partial.get((w.get("address", "").strip().lower(), lang))
+        if p:
+            notes.append(_fix_note(w.pop("address"), p))
+            w["placeId"] = p["id"]
+    return body, notes
+
+
 def _send_route(body: dict, mask: str) -> tuple[dict, list[str]]:
     """POST computeRoutes; if an address was only partially matched, re-resolve it with
     Places and retry once with the place_id."""
     hdr = {"X-Goog-FieldMask": mask, "Content-Type": "application/json"}
+    lang = body.get("languageCode")
+    # texts already known to be mis-geocoded: substitute their place_id before the first request
+    body, pre = _apply_known(body, lang)
     raw = _send("POST", ROUTES_URL, json=body, headers=hdr)
     if "geocodingResults" not in mask:
-        return raw, []
+        return raw, pre
     bad = _partial_waypoints(raw, body)
     if not bad:
-        return raw, []
-    notes, body2 = [], copy.deepcopy(body)
+        return raw, pre
+    notes, body2 = list(pre), copy.deepcopy(body)
     for role, i, text in bad:
         p = resolve_place(text, body.get("languageCode"))
         if not p:
@@ -498,8 +522,8 @@ def _send_route(body: dict, mask: str) -> tuple[dict, list[str]]:
             body2[role] = w
         else:
             body2[role][i] = w
-        notes.append(f"'{text}' → {p['name']}, {p['address']} (route geocoder matched it only "
-                     "partially; resolved via Places)")
+        _known_partial[(text.strip().lower(), lang)] = p
+        notes.append(_fix_note(text, p))
     if body2 == body:
         return raw, notes
     return _send("POST", ROUTES_URL, json=body2, headers=hdr), notes
