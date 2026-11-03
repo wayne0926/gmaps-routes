@@ -258,3 +258,16 @@ def test_itinerary_flags():
     it = L._parse_itineraries(raw)[0]
     assert it["suspect_realtime"] and it["legs"][0]["suspect_realtime"]
     assert it["legs"][2]["needs_delay"]
+
+
+def test_final_leg_bogus_prediction_is_repaired_not_dropped():
+    from gmaps_routes import live as L
+    raw = {"itineraries": [{"startTime": "2026-11-03T12:13:00Z", "endTime": "2026-11-03T12:22:00Z",
+        "duration": 540, "transfers": 0, "legs": [
+            {"mode": "WALK", "duration": 300},
+            {"mode": "TRAM", "displayName": "66", "realTime": True,
+             "from": {"name": "Bonn Stadthaus", "scheduledDeparture": "2026-11-03T12:18:00Z", "departure": "2026-11-03T12:18:00Z"},
+             "to": {"name": "Siegburg Bf", "scheduledArrival": "2026-11-03T12:42:00Z", "arrival": "2026-11-03T12:22:00Z"}}]}]}
+    it = L._parse_itineraries(raw)[0]
+    assert "suspect_realtime" not in it and it["legs"][1]["rt_ignored"]
+    assert it["_end"] == datetime(2026, 11, 3, 12, 42, tzinfo=timezone.utc) and it["duration_s"] == 29 * 60

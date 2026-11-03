@@ -553,10 +553,24 @@ def _parse_itineraries(raw: dict) -> list[dict]:
                     lg["_dep_s"] < prev["_arr_s"] + timedelta(seconds=walked):
                 lg["needs_delay"] = True
             prev, walked = lg, 0
+        start, end, dur = _ts(it.get("startTime")), _ts(it.get("endTime")), it.get("duration")
+        tr = [lg for lg in legs if lg["type"] == "transit"]
+        if tr and tr[-1].get("suspect_realtime") and not any(
+                lg.get("suspect_realtime") for lg in tr[:-1]):
+            # Only the LAST vehicle has the bogus prediction, so no transfer was planned on it:
+            # keep the trip, on its timetable arrival (tester-claude finding F).
+            x = tr[-1]
+            x.pop("suspect_realtime")
+            x["rt_ignored"] = True
+            x["_arr"], x["arr_delay_min"] = x.get("_arr_s"), None
+            walk_after = sum(lg.get("duration_s") or 0 for lg in legs[legs.index(x) + 1:])
+            if x.get("_arr_s") and start:
+                end = x["_arr_s"] + timedelta(seconds=walk_after)
+                dur = int((end - start).total_seconds())
         suspect = any(lg.get("suspect_realtime") for lg in legs)
-        its.append({"_start": _ts(it.get("startTime")), "_end": _ts(it.get("endTime")),
-                    "duration_s": it.get("duration"), "transfers": it.get("transfers"),
-                    "legs": legs, **({"suspect_realtime": True} if suspect else {})})
+        its.append({"_start": start, "_end": end, "duration_s": dur,
+                    "transfers": it.get("transfers"), "legs": legs,
+                    **({"suspect_realtime": True} if suspect else {})})
     return its
 
 
@@ -618,11 +632,15 @@ def live_connections(origin: str, destination: str, *, departure_time: str | Non
             more = []
         seen = {(i["_start"], i["_end"]) for i in good}
         good += [i for i in more if (i["_start"], i["_end"]) not in seen]
-        good.sort(key=lambda i: (i["_end"], -i["_start"].timestamp()) if not arrival_time
-                  else (-i["_start"].timestamp(), i["_end"]))
         if more:
             notes.append(f"re-planned without {'/'.join(sorted(bad_modes))} because of an "
                          "implausible real-time prediction on that line")
+    # best first: earliest arrival (latest departure for arrive-by); repaired trips moved
+    good.sort(key=lambda i: (i["_end"], -i["_start"].timestamp()) if not arrival_time
+              else (-i["_start"].timestamp(), i["_end"]))
+    if any(lg.get("rt_ignored") for i in good[:want] for lg in i["legs"]):
+        notes.append("an implausible real-time arrival on a final leg was ignored; that "
+                     "option uses the timetable arrival")
     if good:
         its = good[:want]
         if bad:
@@ -699,6 +717,8 @@ def _conn_text(res: dict) -> str:
             arr += f" +{ad}" if ad and ad > 0 else f" {ad}" if ad and ad < 0 else ""
             if lg.get("suspect_realtime"):
                 arr += " ⚠implausible"
+            if lg.get("rt_ignored"):
+                arr += " (timetable; real-time ignored as implausible)"
             name = lg.get("line") or "?"
             if lg.get("train") and lg["train"] not in name:
                 name += f" ({lg['train']})"
