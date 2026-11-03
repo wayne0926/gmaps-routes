@@ -239,6 +239,8 @@ def parse_db_board(raw: dict, stop: dict, arrivals: bool, max_results: int,
         plat = (e.get("platform") or {}).get("name")
         plat_s = (e.get("platformSchedule") or {}).get("name")
         line = (tr.get("line") or {}).get("name")
+        if line and line[0].isdigit() and tr.get("category"):  # FlixTrain line '10' -> 'FLX 10'
+            line = f"{tr['category']} {line}"
         desc = tr.get("journeyDescription") or " ".join(
             str(x) for x in (tr.get("category"), tr.get("journeyNumber")) if x)
         out.append(S._drop_none({
@@ -314,6 +316,14 @@ def _transitous_board(stop, t0, arrivals, max_results, all_modes) -> dict:
 def _board_text(res: dict) -> str:
     tz, now = res["tz"], res["_now"]
     lines = [f"{res['station']} · {res['kind']} · live: {res['source']}"]
+    foot: list[str] = []  # long notices (construction etc.) repeat across trains: list once
+
+    def ref(m: str) -> str:
+        if len(m) <= 90:
+            return m
+        if m not in foot:
+            foot.append(m)
+        return f"[{foot.index(m) + 1}]"
     for m in res.get("station_messages") or []:
         lines.append(f"⚠ {m}")
     if not res["entries"]:
@@ -341,8 +351,10 @@ def _board_text(res: dict) -> str:
         lines.append(" · ".join(bits))
         if e.get("via"):
             lines.append(f"      via {', '.join(e['via'])}")
-        for m in e.get("messages") or []:
-            lines.append(f"      ↳ {m}")
+        if e.get("messages"):
+            lines.append("      ↳ " + "; ".join(ref(m) for m in e["messages"]))
+    for i, m in enumerate(foot, 1):
+        lines.append(f"[{i}] {m}")
     for n in res.get("notes", []):
         lines.append(f"note: {n}")
     return "\n".join(lines)

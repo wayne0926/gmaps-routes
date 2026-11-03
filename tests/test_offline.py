@@ -197,3 +197,19 @@ def test_live_ids_and_platforms():
     assert L.find_stop("8000044")["eva"] == "8000044"
     assert L._platform({"description": "Bahnsteig Gleis 2", "track": "80"}) == "2"
     assert L._platform({"track": "4a"}) == "4a"
+
+
+def test_openboards_real_response():
+    """Captured live OpenBoards response, Bonn Hbf, 2026-11-03 ~12:15."""
+    from gmaps_routes import live as L
+    raw = load("openboards_bonn_live")
+    res = L.parse_db_board(raw, {"name": "Bonn Hbf"}, False, 20)
+    e = res["entries"]
+    assert len(e) == 11 and all(x.get("platform") for x in e)
+    ice = next(x for x in e if x["line"] == "ICE 29")
+    assert ice["delay_min"] == 11 and ice["to"] == "Nürnberg Hbf" and len(ice["via"]) == 4
+    ic = next(x for x in e if x["line"] == "IC 2047")
+    assert ic["cancelled"] and any("(cancelled)" in v for v in ic["via"])
+    res["_now"] = datetime(2026, 11, 3, 11, 10, tzinfo=timezone.utc)
+    txt = L._board_text(res)
+    assert txt.count("Due to major renovation work") == 1  # long notices become footnotes

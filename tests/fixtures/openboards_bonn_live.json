@@ -1,0 +1,1674 @@
+{
+ "administrations": [
+  {
+   "administrationId": "80",
+   "operatorCode": "DB",
+   "operatorName": "DB Fernverkehr AG",
+   "transportCompanies": [
+    {
+     "language": "eng",
+     "name": "DB Fernverkehr AG",
+     "phoneNumber": "+49 30 2970",
+     "shortName": "DB Fernverkehr AG",
+     "website": "https://int.bahn.de/en"
+    },
+    {
+     "language": "deu",
+     "name": "DB Fernverkehr AG",
+     "phoneNumber": "+49 30 2970",
+     "shortName": "DB Fernverkehr AG",
+     "website": "https://www.bahn.de"
+    }
+   ]
+  },
+  {
+   "administrationId": "800352",
+   "operatorCode": "DB",
+   "operatorName": "DB Regio AG NRW",
+   "transportCompanies": [
+    {
+     "language": "eng",
+     "name": "DB Regio AG",
+     "phoneNumber": "+49 30 2970",
+     "shortName": "DB Regio AG",
+     "website": "https://www.dbregio.de"
+    },
+    {
+     "language": "deu",
+     "name": "DB Regio AG",
+     "phoneNumber": "+49 30 2970",
+     "shortName": "DB Regio AG",
+     "website": "https://www.dbregio.de"
+    }
+   ]
+  },
+  {
+   "administrationId": "TR",
+   "operatorCode": "TR",
+   "operatorName": "MittelrheinBahn (Trans Regio)",
+   "transportCompanies": [
+    {
+     "email": "service@trans-regio.de",
+     "language": "eng",
+     "name": "Trans Regio Deutsche Regionalbahn GmbH",
+     "phoneNumber": "+49 261 98887070",
+     "shortName": "Trans Regio Deutsche Regionalbahn GmbH",
+     "website": "https://www.mittelrheinbahn.de"
+    },
+    {
+     "email": "service@trans-regio.de",
+     "language": "deu",
+     "name": "Trans Regio Deutsche Regionalbahn GmbH",
+     "phoneNumber": "+49 261 98887070",
+     "shortName": "Trans Regio Deutsche Regionalbahn GmbH",
+     "website": "https://www.mittelrheinbahn.de"
+    }
+   ]
+  },
+  {
+   "administrationId": "NXRB",
+   "operatorCode": "NX",
+   "operatorName": "National Express",
+   "transportCompanies": [
+    {
+     "email": "kundendialograil@nationalexpress.de",
+     "language": "eng",
+     "name": "National Express Rail GmbH",
+     "phoneNumber": "+49 221 13999444",
+     "shortName": "National Express Rail GmbH",
+     "website": "https://nationalexpress.de"
+    },
+    {
+     "email": "kundendialograil@nationalexpress.de",
+     "language": "deu",
+     "name": "National Express Rail GmbH",
+     "phoneNumber": "+49 221 13999444",
+     "shortName": "National Express Rail GmbH",
+     "website": "https://nationalexpress.de"
+    }
+   ]
+  },
+  {
+   "administrationId": "NXRE",
+   "operatorCode": "NX",
+   "operatorName": "National Express",
+   "transportCompanies": [
+    {
+     "email": "kundendialograil@nationalexpress.de",
+     "language": "eng",
+     "name": "National Express Rail GmbH",
+     "phoneNumber": "+49 221 13999444",
+     "shortName": "National Express Rail GmbH",
+     "website": "https://nationalexpress.de"
+    },
+    {
+     "email": "kundendialograil@nationalexpress.de",
+     "language": "deu",
+     "name": "National Express Rail GmbH",
+     "phoneNumber": "+49 221 13999444",
+     "shortName": "National Express Rail GmbH",
+     "website": "https://nationalexpress.de"
+    }
+   ]
+  }
+ ],
+ "departures": [
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "futureDisruptions": true,
+   "journeyId": "20261103-e2f72fee-278a-3af1-9196-64bb05b20c57",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8000284"
+    },
+    "headerAdministrationId": "80",
+    "headerJourneyNumber": 29,
+    "origin": {
+     "evaNumber": "8000080"
+    },
+    "scheduledStartTime": "2026-11-03T10:35:00+01:00",
+    "transportAtStart": {
+     "administrationId": "80",
+     "category": "ICE",
+     "categoryInternal": "ICE",
+     "journeyDescription": "ICE 29",
+     "journeyNumber": 29,
+     "operationalJourneyNumber": "29",
+     "type": "HIGH_SPEED_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    4,
+    5,
+    6,
+    7
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "time": "2026-11-03T12:25:00+01:00",
+   "timeSchedule": "2026-11-03T12:14:00+01:00",
+   "timeType": "PREVIEW",
+   "transport": {
+    "administrationId": "80",
+    "category": "ICE",
+    "categoryInternal": "ICE",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8000284"
+      }
+     ]
+    },
+    "journeyDescription": "ICE 29",
+    "journeyNumber": 29,
+    "operationalJourneyNumber": "29",
+    "type": "HIGH_SPEED_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8000206"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8000240"
+     },
+     {
+      "displayPriority": 3,
+      "evaNumber": "8070003"
+     },
+     {
+      "displayPriority": 4,
+      "evaNumber": "8000105"
+     }
+    ]
+   },
+   "vehicleSequenceAvailable": true
+  },
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "journeyId": "20261103-48edfcf8-7aa4-3505-8316-07c1e1937391",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8000727"
+    },
+    "headerAdministrationId": "800352",
+    "headerJourneyNumber": 32346,
+    "origin": {
+     "evaNumber": "8000044"
+    },
+    "scheduledStartTime": "2026-11-03T12:40:00+01:00",
+    "transportAtStart": {
+     "administrationId": "800352",
+     "category": "S",
+     "categoryInternal": "DBS",
+     "dfid": "de:nrw:s23::32346|1240",
+     "dtid": "de:nrw:s23:",
+     "journeyDescription": "S23",
+     "journeyNumber": 32346,
+     "line": {
+      "name": "S23"
+     },
+     "operationalJourneyNumber": "32346",
+     "type": "CITY_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    2,
+    5,
+    8
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:75",
+    "name": "5"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:75",
+    "name": "5"
+   },
+   "time": "2026-11-03T12:40:00+01:00",
+   "timeSchedule": "2026-11-03T12:40:00+01:00",
+   "timeType": "PREVIEW",
+   "transport": {
+    "administrationId": "800352",
+    "category": "S",
+    "categoryInternal": "DBS",
+    "dfid": "de:nrw:s23::32346|1240",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8000727"
+      }
+     ]
+    },
+    "dtid": "de:nrw:s23:",
+    "journeyDescription": "S23",
+    "journeyNumber": 32346,
+    "line": {
+     "name": "S23"
+    },
+    "operationalJourneyNumber": "32346",
+    "type": "CITY_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8001088"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8001081"
+     },
+     {
+      "displayPriority": 3,
+      "evaNumber": "8001084"
+     },
+     {
+      "displayPriority": 4,
+      "evaNumber": "8000495"
+     }
+    ]
+   },
+   "vehicleSequenceAvailable": true
+  },
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "journeyId": "20261103-7ab76573-383c-38fa-bfe3-62cdc0424963",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8003368"
+    },
+    "headerAdministrationId": "TR",
+    "headerJourneyNumber": 25422,
+    "origin": {
+     "evaNumber": "8000240"
+    },
+    "scheduledStartTime": "2026-11-03T10:02:00+01:00",
+    "transportAtStart": {
+     "administrationId": "TR",
+     "category": "TR",
+     "categoryInternal": "DRB",
+     "journeyDescription": "RB26",
+     "journeyNumber": 25422,
+     "line": {
+      "name": "RB26"
+     },
+     "operationalJourneyNumber": "25422",
+     "type": "REGIONAL_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    1,
+    9
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:71",
+    "name": "1"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:71",
+    "name": "1"
+   },
+   "time": "2026-11-03T12:41:00+01:00",
+   "timeSchedule": "2026-11-03T12:33:00+01:00",
+   "timeType": "PREVIEW",
+   "transport": {
+    "administrationId": "TR",
+    "category": "TR",
+    "categoryInternal": "DRB",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8003368"
+      }
+     ]
+    },
+    "journeyDescription": "RB26",
+    "journeyNumber": 25422,
+    "line": {
+     "name": "RB26"
+    },
+    "operationalJourneyNumber": "25422",
+    "type": "REGIONAL_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8005152"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8005499"
+     },
+     {
+      "displayPriority": 3,
+      "evaNumber": "8001215"
+     },
+     {
+      "displayPriority": 4,
+      "evaNumber": "8003160"
+     }
+    ]
+   }
+  },
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "journeyId": "20261103-21e9a54a-37f2-38b2-881c-78b14b1faa5e",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8000240"
+    },
+    "headerAdministrationId": "TR",
+    "headerJourneyNumber": 25423,
+    "origin": {
+     "evaNumber": "8003368"
+    },
+    "scheduledStartTime": "2026-11-03T11:50:00+01:00",
+    "transportAtStart": {
+     "administrationId": "TR",
+     "category": "TR",
+     "categoryInternal": "DRB",
+     "journeyDescription": "RB26",
+     "journeyNumber": 25423,
+     "line": {
+      "name": "RB26"
+     },
+     "operationalJourneyNumber": "25423",
+     "type": "REGIONAL_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    9
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "time": "2026-11-03T12:42:00+01:00",
+   "timeSchedule": "2026-11-03T12:27:00+01:00",
+   "timeType": "PREVIEW",
+   "transport": {
+    "administrationId": "TR",
+    "category": "TR",
+    "categoryInternal": "DRB",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8000240"
+      }
+     ]
+    },
+    "journeyDescription": "RB26",
+    "journeyNumber": 25423,
+    "line": {
+     "name": "RB26"
+    },
+    "operationalJourneyNumber": "25423",
+    "type": "REGIONAL_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8001091"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8001082"
+     },
+     {
+      "displayPriority": 3,
+      "evaNumber": "8001085"
+     },
+     {
+      "displayPriority": 4,
+      "evaNumber": "8005153"
+     }
+    ]
+   }
+  },
+  {
+   "cancelled": true,
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "futureDisruptions": true,
+   "journeyId": "20261103-fe0ccce9-1214-3d40-9286-5858fa130a16",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8010085"
+    },
+    "differingOrigin": {
+     "evaNumber": "8000080"
+    },
+    "headerAdministrationId": "80",
+    "headerJourneyNumber": 2047,
+    "origin": {
+     "cancelled": true,
+     "evaNumber": "8000096"
+    },
+    "scheduledStartTime": "2026-11-03T09:36:00+01:00",
+    "transportAtStart": {
+     "administrationId": "80",
+     "category": "IC",
+     "categoryInternal": "IC",
+     "journeyDescription": "IC 2047",
+     "journeyNumber": 2047,
+     "label": "Loreley",
+     "operationalJourneyNumber": "2047",
+     "type": "INTERCITY_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    4,
+    9,
+    6,
+    10
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:71",
+    "name": "1"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:71",
+    "name": "1"
+   },
+   "time": "2026-11-03T12:44:00+01:00",
+   "timeSchedule": "2026-11-03T12:44:00+01:00",
+   "timeType": "SCHEDULE",
+   "transport": {
+    "administrationId": "80",
+    "category": "IC",
+    "categoryInternal": "IC",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8010085"
+      }
+     ]
+    },
+    "journeyDescription": "IC 2047",
+    "journeyNumber": 2047,
+    "label": "Loreley",
+    "operationalJourneyNumber": "2047",
+    "type": "INTERCITY_TRAIN",
+    "via": [
+     {
+      "cancelled": true,
+      "displayPriority": 1,
+      "evaNumber": "8000207"
+     },
+     {
+      "cancelled": true,
+      "displayPriority": 2,
+      "evaNumber": "8000087"
+     },
+     {
+      "cancelled": true,
+      "displayPriority": 3,
+      "evaNumber": "8000266"
+     },
+     {
+      "cancelled": true,
+      "displayPriority": 4,
+      "evaNumber": "8000142"
+     },
+     {
+      "cancelled": true,
+      "displayPriority": 5,
+      "evaNumber": "8000080"
+     }
+    ]
+   }
+  },
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "journeyId": "20261103-46c9cb6d-570a-398e-a6b6-acf2f89e7e16",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8006719"
+    },
+    "headerAdministrationId": "NXRB",
+    "headerJourneyNumber": 17338,
+    "origin": {
+     "evaNumber": "8001085"
+    },
+    "scheduledStartTime": "2026-11-03T12:43:00+01:00",
+    "transportAtStart": {
+     "administrationId": "NXRB",
+     "category": "NX",
+     "categoryInternal": "DRB",
+     "dfid": "17338",
+     "dtid": "de:nrw:rb48:",
+     "journeyDescription": "RB48",
+     "journeyNumber": 17338,
+     "label": "Rhein-Wupper-Bahn",
+     "line": {
+      "name": "RB48"
+     },
+     "operationalJourneyNumber": "17338",
+     "type": "REGIONAL_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    11,
+    9,
+    12,
+    8
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:71",
+    "name": "1"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:71",
+    "name": "1"
+   },
+   "time": "2026-11-03T12:54:00+01:00",
+   "timeSchedule": "2026-11-03T12:54:00+01:00",
+   "timeType": "PREVIEW",
+   "transport": {
+    "administrationId": "NXRB",
+    "category": "NX",
+    "categoryInternal": "DRB",
+    "dfid": "17338",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8006719"
+      }
+     ]
+    },
+    "dtid": "de:nrw:rb48:",
+    "journeyDescription": "RB48",
+    "journeyNumber": 17338,
+    "label": "Rhein-Wupper-Bahn",
+    "line": {
+     "name": "RB48"
+    },
+    "operationalJourneyNumber": "17338",
+    "type": "REGIONAL_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8005152"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8005499"
+     },
+     {
+      "displayPriority": 3,
+      "evaNumber": "8001215"
+     },
+     {
+      "displayPriority": 4,
+      "evaNumber": "8003160"
+     }
+    ]
+   },
+   "vehicleSequenceAvailable": true
+  },
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "journeyId": "20261103-12ae8593-3988-3759-8cef-9068267753c6",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8001469"
+    },
+    "headerAdministrationId": "NXRE",
+    "headerJourneyNumber": 28518,
+    "origin": {
+     "evaNumber": "8000206"
+    },
+    "scheduledStartTime": "2026-11-03T12:16:00+01:00",
+    "transportAtStart": {
+     "administrationId": "NXRE",
+     "category": "NX",
+     "categoryInternal": "DRE",
+     "dfid": "28518",
+     "dtid": "de:nrw:re5:",
+     "journeyDescription": "RE5",
+     "journeyNumber": 28518,
+     "label": "RRX Rhein-Ruhr-Express",
+     "line": {
+      "name": "RE5"
+     },
+     "operationalJourneyNumber": "28518",
+     "type": "REGIONAL_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    13,
+    11,
+    12,
+    8
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:71",
+    "name": "1"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:71",
+    "name": "1"
+   },
+   "time": "2026-11-03T13:04:00+01:00",
+   "timeSchedule": "2026-11-03T13:04:00+01:00",
+   "timeType": "PREVIEW",
+   "transport": {
+    "administrationId": "NXRE",
+    "category": "NX",
+    "categoryInternal": "DRE",
+    "dfid": "28518",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8001469"
+      }
+     ]
+    },
+    "dtid": "de:nrw:re5:",
+    "journeyDescription": "RE5",
+    "journeyNumber": 28518,
+    "label": "RRX Rhein-Ruhr-Express",
+    "line": {
+     "name": "RE5"
+    },
+    "operationalJourneyNumber": "28518",
+    "type": "REGIONAL_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8001215"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8003361"
+     },
+     {
+      "displayPriority": 3,
+      "evaNumber": "8000207"
+     },
+     {
+      "displayPriority": 4,
+      "evaNumber": "8003368"
+     }
+    ]
+   },
+   "vehicleSequenceAvailable": true
+  },
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "journeyId": "20261103-54d749b7-e311-3161-be5e-ee6c865dd6cb",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8001085"
+    },
+    "headerAdministrationId": "NXRB",
+    "headerJourneyNumber": 17335,
+    "origin": {
+     "evaNumber": "8006719"
+    },
+    "scheduledStartTime": "2026-11-03T11:40:00+01:00",
+    "transportAtStart": {
+     "administrationId": "NXRB",
+     "category": "NX",
+     "categoryInternal": "DRB",
+     "dfid": "17335",
+     "dtid": "de:nrw:rb48:",
+     "journeyDescription": "RB48",
+     "journeyNumber": 17335,
+     "label": "Rhein-Wupper-Bahn",
+     "line": {
+      "name": "RB48"
+     },
+     "operationalJourneyNumber": "17335",
+     "type": "REGIONAL_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    11,
+    9,
+    12,
+    8
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "time": "2026-11-03T13:07:00+01:00",
+   "timeSchedule": "2026-11-03T13:07:00+01:00",
+   "timeType": "PREVIEW",
+   "transport": {
+    "administrationId": "NXRB",
+    "category": "NX",
+    "categoryInternal": "DRB",
+    "dfid": "17335",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8001085"
+      }
+     ]
+    },
+    "dtid": "de:nrw:rb48:",
+    "journeyDescription": "RB48",
+    "journeyNumber": 17335,
+    "label": "Rhein-Wupper-Bahn",
+    "line": {
+     "name": "RB48"
+    },
+    "operationalJourneyNumber": "17335",
+    "type": "REGIONAL_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8001091"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8001082"
+     }
+    ]
+   },
+   "vehicleSequenceAvailable": true
+  },
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "journeyId": "20261103-8a506a24-207e-3ed3-a7dd-77164d762a6a",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8000100"
+    },
+    "headerAdministrationId": "800352",
+    "headerJourneyNumber": 32348,
+    "origin": {
+     "evaNumber": "8000044"
+    },
+    "scheduledStartTime": "2026-11-03T13:10:00+01:00",
+    "transportAtStart": {
+     "administrationId": "800352",
+     "category": "S",
+     "categoryInternal": "DBS",
+     "dfid": "de:nrw:s23::32348|1310",
+     "dtid": "de:nrw:s23:",
+     "journeyDescription": "S23",
+     "journeyNumber": 32348,
+     "line": {
+      "name": "S23"
+     },
+     "operationalJourneyNumber": "32348",
+     "type": "CITY_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    2,
+    5,
+    8
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:75",
+    "name": "5"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:75",
+    "name": "5"
+   },
+   "time": "2026-11-03T13:10:00+01:00",
+   "timeSchedule": "2026-11-03T13:10:00+01:00",
+   "timeType": "SCHEDULE",
+   "transport": {
+    "administrationId": "800352",
+    "category": "S",
+    "categoryInternal": "DBS",
+    "dfid": "de:nrw:s23::32348|1310",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8000100"
+      }
+     ]
+    },
+    "dtid": "de:nrw:s23:",
+    "journeyDescription": "S23",
+    "journeyNumber": 32348,
+    "line": {
+     "name": "S23"
+    },
+    "operationalJourneyNumber": "32348",
+    "type": "CITY_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8001088"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8001081"
+     },
+     {
+      "displayPriority": 3,
+      "evaNumber": "8001084"
+     },
+     {
+      "displayPriority": 4,
+      "evaNumber": "8000495"
+     }
+    ]
+   },
+   "vehicleSequenceAvailable": true
+  },
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "journeyId": "20261103-e26d83be-88c6-3b7e-9f5c-589d6bcdacc6",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8000206"
+    },
+    "differingOrigin": {
+     "evaNumber": "8004542"
+    },
+    "headerAdministrationId": "NXRE",
+    "headerJourneyNumber": 28515,
+    "origin": {
+     "cancelled": true,
+     "evaNumber": "8001469"
+    },
+    "scheduledStartTime": "2026-11-03T11:19:00+01:00",
+    "transportAtStart": {
+     "administrationId": "NXRE",
+     "category": "NX",
+     "categoryInternal": "DRE",
+     "dfid": "28515",
+     "dtid": "de:nrw:re5:",
+     "journeyDescription": "RE5",
+     "journeyNumber": 28515,
+     "label": "RRX Rhein-Ruhr-Express",
+     "line": {
+      "name": "RE5"
+     },
+     "operationalJourneyNumber": "28515",
+     "type": "REGIONAL_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    3,
+    13,
+    11,
+    12,
+    8,
+    14
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "time": "2026-11-03T13:11:00+01:00",
+   "timeSchedule": "2026-11-03T12:56:00+01:00",
+   "timeType": "PREVIEW",
+   "transport": {
+    "administrationId": "NXRE",
+    "category": "NX",
+    "categoryInternal": "DRE",
+    "dfid": "28515",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8000206"
+      }
+     ]
+    },
+    "dtid": "de:nrw:re5:",
+    "journeyDescription": "RE5",
+    "journeyNumber": 28515,
+    "label": "RRX Rhein-Ruhr-Express",
+    "line": {
+     "name": "RE5"
+    },
+    "operationalJourneyNumber": "28515",
+    "type": "REGIONAL_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8001091"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8001082"
+     },
+     {
+      "displayPriority": 3,
+      "evaNumber": "8004604"
+     },
+     {
+      "displayPriority": 4,
+      "evaNumber": "8000310"
+     }
+    ]
+   },
+   "vehicleSequenceAvailable": true
+  },
+  {
+   "departureId": "8000044_D_1",
+   "evaNumber": "8000044",
+   "futureDisruptions": true,
+   "journeyId": "20261103-33889af6-5316-31c5-aae6-d35d452308a7",
+   "journeyInfo": {
+    "destination": {
+     "evaNumber": "8000096"
+    },
+    "headerAdministrationId": "80",
+    "headerJourneyNumber": 2044,
+    "origin": {
+     "evaNumber": "8010085"
+    },
+    "scheduledStartTime": "2026-11-03T05:00:00+01:00",
+    "transportAtStart": {
+     "administrationId": "80",
+     "category": "IC",
+     "categoryInternal": "IC",
+     "journeyDescription": "IC 2044",
+     "journeyNumber": 2044,
+     "operationalJourneyNumber": "2044",
+     "type": "INTERCITY_TRAIN"
+    },
+    "type": "REGULAR"
+   },
+   "messages": [
+    4,
+    9,
+    6,
+    15
+   ],
+   "platform": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "platformSchedule": {
+    "ifopt": "de:05314:61101:7:73",
+    "name": "3"
+   },
+   "time": "2026-11-03T13:45:00+01:00",
+   "timeSchedule": "2026-11-03T13:14:00+01:00",
+   "timeType": "PREVIEW",
+   "transport": {
+    "administrationId": "80",
+    "category": "IC",
+    "categoryInternal": "IC",
+    "direction": {
+     "stopPlaces": [
+      {
+       "evaNumber": "8000096"
+      }
+     ]
+    },
+    "journeyDescription": "IC 2044",
+    "journeyNumber": 2044,
+    "operationalJourneyNumber": "2044",
+    "type": "INTERCITY_TRAIN",
+    "via": [
+     {
+      "displayPriority": 1,
+      "evaNumber": "8000206"
+     },
+     {
+      "displayPriority": 2,
+      "evaNumber": "8000240"
+     },
+     {
+      "displayPriority": 3,
+      "evaNumber": "8000244"
+     },
+     {
+      "displayPriority": 4,
+      "evaNumber": "8000156"
+     }
+    ]
+   },
+   "vehicleSequenceAvailable": true
+  }
+ ],
+ "messages": {
+  "attributes": [
+   {
+    "code": "CK",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Komfort Check-in verfügbar - wenn möglich bitte einchecken"
+     }
+    ],
+    "messageID": 4
+   },
+   {
+    "code": "FB",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Fahrradmitnahme begrenzt möglich"
+     }
+    ],
+    "messageID": 5
+   },
+   {
+    "code": "FR",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Fahrradmitnahme reservierungspflichtig"
+     }
+    ],
+    "messageID": 6
+   },
+   {
+    "code": "OC",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "rollstuhltaugliches WC"
+     }
+    ],
+    "messageID": 8
+   },
+   {
+    "code": "FK",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Fahrradmitnahme begrenzt möglich"
+     }
+    ],
+    "messageID": 9
+   },
+   {
+    "code": "RO",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Rollstuhlstellplatz"
+     }
+    ],
+    "messageID": 11
+   },
+   {
+    "code": "RG",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Barrierefreies Fahrzeug"
+     }
+    ],
+    "messageID": 12
+   },
+   {
+    "code": "G",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Fahrradmitnahme begrenzt möglich"
+     }
+    ],
+    "messageID": 13
+   }
+  ],
+  "disruptions": [
+   {
+    "cause": "CONSTRUCTION",
+    "descriptions": [
+     {
+      "language": "eng",
+      "text": "Additional service disruptions due to nighttime construction work on S-Bahn lines from July through December 2026. For more information, visit zuginfo.nrw or follow this link: https://zuginfo.nrw?msg=134421.",
+      "textShort": "Additional restrictions due to nighttime construction work on S-Bahn lines from July through December 2026"
+     },
+     {
+      "language": "deu",
+      "text": "Weitere Einschränkungen durch nächtliche Bauarbeiten im Zeitraum Juli bis Dezember 2026 auf den S Bahn Linien Weitere Informationen finden Sie auf zuginfo.nrw oder unter folgendem Link: https://zuginfo.nrw?msg=134421.",
+      "textShort": "Weitere Einschränkungen durch nächtliche Bauarbeiten im Zeitraum Juli bis Dezember 2026 auf den S Bahn Linien"
+     }
+    ],
+    "displayPriority": 60,
+    "disruptionCommunicationID": "8f612176-46af-4f21-b528-3bb4997c3fc8",
+    "disruptionID": "0fce03d0-29d0-4bc6-ae5f-e6fdbfd84756",
+    "effect": "OTHER_EFFECT",
+    "messageID": 2
+   },
+   {
+    "cause": "CONSTRUCTION",
+    "descriptions": [
+     {
+      "language": "eng",
+      "text": "Due to construction work, there will be partial service disruptions on RE 5 (RRX) trains from October 30, 2026 (9:00 p.m.) through November 9, 2026 (9:00 p.m.), there will be partial service suspensions between Wesel and Dinslaken.  Between Wesel and Dinslaken, please use the Regional Express trains on lines RE 19 or RE 49.",
+      "textShort": "Due to construction work, there will be partial service disruptions on RE 5 (RRX) trains from October 30, 2026 (9:00 p.m.) through November 9, 2026 (9:00 p.m.), there will be partial service suspensions between Wesel and Dinslaken."
+     },
+     {
+      "language": "deu",
+      "text": "Aufgrund von Baumaßnahmen kommt es bei den Zügen der Linien RE 5 (RRX) vom 30.10.2026 (21:00 Uhr) bis zum 09.11.2026 (21 Uhr) zu Teilausfällen zwischen Wesel und Dinslaken.  Zwischen Wesel und Dinslaken nutzen Sie bitte die Regionalexpresse der Linien RE 19 oder RE 49.",
+      "textShort": "Aufgrund von Baumaßnahmen kommt es bei den Zügen der Linien RE 5 (RRX) vom 30.10.2026 (21:00 Uhr) bis zum 09.11.2026 (21 Uhr) zu Teilausfällen zwischen Wesel und Dinslaken."
+     }
+    ],
+    "displayPriority": 60,
+    "disruptionCommunicationID": "9f2388b0-a94f-497c-b108-7ee79b7138a8",
+    "disruptionID": "57f2dd00-b80e-4170-a457-64c215833fdb",
+    "effect": "OTHER_EFFECT",
+    "messageID": 3
+   }
+  ],
+  "notes": [
+   {
+    "descriptions": [
+     {
+      "language": "eng",
+      "text": "Due to major renovation work on the right bank of the Rhine, this train is operating as Line RB 26 on the left bank of the Rhine via Bonn Central Station",
+      "textShort": "Due to major renovation work on the right bank of the Rhine, this train is operating as Line RB 26 on the left bank of the Rhine via Bonn Central Station"
+     },
+     {
+      "language": "deu",
+      "text": "Aufgrund der Generalsanierung am rechten Rhein, verkehrt dieser Zug als Linie RB 26 linksrheinisch über Bonn Hbf",
+      "textShort": "Aufgrund der Generalsanierung am rechten Rhein, verkehrt dieser Zug als Linie RB 26 linksrheinisch über Bonn Hbf"
+     }
+    ],
+    "displayPriority": 60,
+    "disruptionCommunicationID": "bd9f788a-5431-469d-b2f8-45ac91477ea7",
+    "disruptionID": "f9247021-dd7a-4a6a-b954-7ab0ff16643b",
+    "messageID": 1
+   }
+  ],
+  "risCauseCodes": [
+   {
+    "code": "51",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Verspätetes Personal aus vorheriger Fahrt"
+     }
+    ],
+    "messageID": 7
+   },
+   {
+    "code": "37",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Kurzfristiger Fahrzeugausfall"
+     }
+    ],
+    "messageID": 10
+   },
+   {
+    "code": "48",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Verspätung aus vorheriger Fahrt"
+     }
+    ],
+    "messageID": 14
+   },
+   {
+    "code": "43",
+    "descriptions": [
+     {
+      "language": "deu",
+      "text": "Verspätung eines vorausfahrenden Zuges"
+     }
+    ],
+    "messageID": 15
+   }
+  ]
+ },
+ "meta": {
+  "consideredStopPlaces": [
+   "100687",
+   "120449",
+   "200687",
+   "300687",
+   "400441",
+   "400687",
+   "442022",
+   "443757",
+   "8000044",
+   "8098044"
+  ]
+ },
+ "stations": [
+  {
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Bonn Hbf"
+    }
+   ],
+   "stada": "767"
+  }
+ ],
+ "stopPlaces": [
+  {
+   "evaNumber": "8000044",
+   "ifopt": "de:05314:61101",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Bonn Hbf"
+    }
+   ],
+   "stada": "767"
+  },
+  {
+   "evaNumber": "8000080",
+   "ifopt": "de:05913:131",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Dortmund Hbf"
+    }
+   ],
+   "stada": "1289"
+  },
+  {
+   "evaNumber": "8000284",
+   "ifopt": "de:09564:510",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Nürnberg Hbf"
+    }
+   ],
+   "stada": "4593"
+  },
+  {
+   "evaNumber": "8000206",
+   "ifopt": "de:07111:010001",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Koblenz Hbf"
+    }
+   ],
+   "stada": "3299"
+  },
+  {
+   "evaNumber": "8000240",
+   "ifopt": "de:07315:9037",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Mainz Hbf"
+    }
+   ],
+   "stada": "3898"
+  },
+  {
+   "evaNumber": "8070003",
+   "ifopt": "de:06412:11511",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Frankfurt(M) Flughafen Fernbf",
+     "symbol": "Frankfurt(M) $flughafen Fernbf"
+    }
+   ],
+   "stada": "7982"
+  },
+  {
+   "evaNumber": "8000105",
+   "ifopt": "de:06412:10",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Frankfurt(Main)Hbf"
+    }
+   ],
+   "stada": "1866"
+  },
+  {
+   "evaNumber": "8000727",
+   "ifopt": "de:05366:73101",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Bad Münstereifel"
+    }
+   ],
+   "stada": "308"
+  },
+  {
+   "evaNumber": "8001088",
+   "ifopt": "de:05314:62601",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Bonn-Endenich Nord"
+    }
+   ],
+   "stada": "2013"
+  },
+  {
+   "evaNumber": "8001081",
+   "ifopt": "de:05314:63201",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Bonn Helmholtzstraße"
+    }
+   ],
+   "stada": "3176"
+  },
+  {
+   "evaNumber": "8001084",
+   "ifopt": "de:05314:63101",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Bonn-Duisdorf"
+    }
+   ],
+   "stada": "770"
+  },
+  {
+   "evaNumber": "8000495",
+   "ifopt": "de:05382:53801",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Alfter-Impekoven"
+    }
+   ],
+   "stada": "2392"
+  },
+  {
+   "evaNumber": "8003368",
+   "ifopt": "de:05315:11901",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Köln Messe/Deutz"
+    }
+   ],
+   "stada": "3329"
+  },
+  {
+   "evaNumber": "8005152",
+   "ifopt": "de:05382:53101",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Roisdorf"
+    }
+   ],
+   "stada": "5326"
+  },
+  {
+   "evaNumber": "8005499",
+   "ifopt": "de:05382:53501",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Sechtem"
+    }
+   ],
+   "stada": "5773"
+  },
+  {
+   "evaNumber": "8001215",
+   "ifopt": "de:05362:84101",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Brühl"
+    }
+   ],
+   "stada": "917"
+  },
+  {
+   "evaNumber": "8003160",
+   "ifopt": "de:05362:83901",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Hürth-Kalscheuren"
+    }
+   ],
+   "stada": "3089"
+  },
+  {
+   "evaNumber": "8001091",
+   "ifopt": "de:05314:64458",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Bonn UN Campus"
+    }
+   ],
+   "stada": "8213"
+  },
+  {
+   "evaNumber": "8001082",
+   "ifopt": "de:05314:66101",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Bonn-Bad Godesberg"
+    }
+   ],
+   "stada": "768"
+  },
+  {
+   "evaNumber": "8001085",
+   "ifopt": "de:05314:67301",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Bonn-Mehlem"
+    }
+   ],
+   "stada": "771"
+  },
+  {
+   "evaNumber": "8005153",
+   "ifopt": "de:07131:080113",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Rolandseck"
+    }
+   ],
+   "stada": "5328"
+  },
+  {
+   "evaNumber": "8000096",
+   "ifopt": "de:08111:6115",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Stuttgart Hbf"
+    }
+   ],
+   "stada": "6071"
+  },
+  {
+   "evaNumber": "8010085",
+   "ifopt": "de:14612:28",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Dresden Hbf"
+    }
+   ],
+   "stada": "1343"
+  },
+  {
+   "evaNumber": "8000207",
+   "ifopt": "de:05315:11201",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Köln Hbf"
+    }
+   ],
+   "stada": "3320"
+  },
+  {
+   "evaNumber": "8000087",
+   "ifopt": "de:05122:13800",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Solingen Hbf"
+    }
+   ],
+   "stada": "5882"
+  },
+  {
+   "evaNumber": "8000266",
+   "ifopt": "de:05124:11376",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Wuppertal Hbf"
+    }
+   ],
+   "stada": "6914"
+  },
+  {
+   "evaNumber": "8000142",
+   "ifopt": "de:05914:2007",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Hagen Hbf"
+    }
+   ],
+   "stada": "2457"
+  },
+  {
+   "evaNumber": "8006719",
+   "ifopt": "de:05124:11602",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Wuppertal-Oberbarmen"
+    }
+   ],
+   "stada": "6928"
+  },
+  {
+   "evaNumber": "8001469",
+   "ifopt": "de:05170:36259",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Dinslaken"
+    }
+   ],
+   "stada": "1223"
+  },
+  {
+   "evaNumber": "8003361",
+   "ifopt": "de:05315:11513",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Köln Süd"
+    }
+   ],
+   "stada": "3321"
+  },
+  {
+   "evaNumber": "8000100",
+   "ifopt": "de:05366:72101",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Euskirchen"
+    }
+   ],
+   "stada": "1734"
+  },
+  {
+   "evaNumber": "8004542",
+   "ifopt": "de:05119:14190",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Oberhausen-Sterkrade"
+    }
+   ],
+   "stada": "4651"
+  },
+  {
+   "evaNumber": "8004604",
+   "ifopt": "de:07131:080087",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Oberwinter"
+    }
+   ],
+   "stada": "4713"
+  },
+  {
+   "evaNumber": "8000310",
+   "ifopt": "de:07131:080107",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Remagen"
+    }
+   ],
+   "stada": "5214"
+  },
+  {
+   "evaNumber": "8000244",
+   "ifopt": "de:08222:2417",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Mannheim Hbf"
+    }
+   ],
+   "stada": "3925"
+  },
+  {
+   "evaNumber": "8000156",
+   "ifopt": "de:08221:1160",
+   "localizedNames": [
+    {
+     "language": "deu",
+     "name": "Heidelberg Hbf"
+    }
+   ],
+   "stada": "2628"
+  }
+ ]
+}
