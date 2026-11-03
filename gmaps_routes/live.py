@@ -509,47 +509,9 @@ def _place(spec: str, bias: str | None = None) -> tuple:
     return pos, label, note, pos
 
 
-# Everything but flights (MOTIS mode names); pass modes=[..., "AIRPLANE"] to allow them.
-GROUND_MODES = ("RAIL", "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL", "REGIONAL_FAST_RAIL",
-                "REGIONAL_RAIL", "SUBURBAN", "METRO", "SUBWAY", "TRAM", "BUS", "COACH", "FERRY",
-                "FUNICULAR", "AERIAL_LIFT", "CABLE_CAR", "OTHER")
-_MODE_GROUPS = {"TRAIN": ("RAIL", "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL",
-                          "REGIONAL_FAST_RAIL", "REGIONAL_RAIL", "SUBURBAN"),
-                "LOCAL_TRAIN": ("REGIONAL_FAST_RAIL", "REGIONAL_RAIL", "SUBURBAN"),
-                "LIGHT_RAIL": ("TRAM", "SUBWAY", "METRO"), "FLIGHT": ("AIRPLANE",)}
-
-
-def live_connections(origin: str, destination: str, *, departure_time: str | None = None,
-                     arrival_time: str | None = None, max_results: int = 4,
-                     max_transfers: int | None = None, modes: list[str] | None = None,
-                     format: str = "text"):
-    """Journey planning with real-time delays and platforms (Transitous / MOTIS).
-    modes: MOTIS modes or groups TRAIN / LOCAL_TRAIN / LIGHT_RAIL / BUS / FLIGHT ...;
-    default = every ground mode (no flights)."""
-    C._check_format(format)
-    if departure_time and arrival_time:
-        raise ValueError("departure_time and arrival_time are mutually exclusive")
-    o, olab, on, opos = _place(origin)
-    d, dlab, dn, _ = _place(destination, bias=opos)
-    t = C.parse_time(arrival_time or departure_time)
-    now0 = datetime.now(timezone.utc)
-    tm: list[str] = []
-    for m_ in (modes or GROUND_MODES):
-        tm += list(_MODE_GROUPS.get(m_.upper(), (m_.upper(),)))
-    params = {"fromPlace": o, "toPlace": d, "numItineraries": max(1, min(int(max_results), 10)),
-              "transitModes": ",".join(dict.fromkeys(tm))}
-    if t:
-        params["time"] = t.strftime("%Y-%m-%dT%H:%M:%SZ")
-    if arrival_time:
-        params["arriveBy"] = "true"
-    if max_transfers is not None:
-        params["maxTransfers"] = int(max_transfers)
-    raw = _http("GET", f"{TRANSITOUS}/v5/plan", params=params)
-    if format == "raw":
-        return raw
-    now = datetime.now(timezone.utc)
+def _parse_itineraries(raw: dict) -> list[dict]:
     its = []
-    for it in raw.get("itineraries", [])[:max_results]:
+    for it in raw.get("itineraries", []):
         legs = []
         for lg in it.get("legs", []):
             f, to = lg.get("from") or {}, lg.get("to") or {}
@@ -581,12 +543,93 @@ def live_connections(origin: str, destination: str, *, departure_time: str | Non
             if x.get("realtime") and ride_s and ride_rt is not None and ride_s >= 300 \
                     and ride_rt < 0.6 * ride_s and ride_s - ride_rt >= 300:
                 x["suspect_realtime"] = True
+        # transfers that only work because the next vehicle is late (by schedule: missed)
+        prev, walked = None, 0
+        for lg in legs:
+            if lg["type"] == "walk":
+                walked += lg.get("duration_s") or 0
+                continue
+            if prev and prev.get("_arr_s") and lg.get("_dep_s") and \
+                    lg["_dep_s"] < prev["_arr_s"] + timedelta(seconds=walked):
+                lg["needs_delay"] = True
+            prev, walked = lg, 0
         suspect = any(lg.get("suspect_realtime") for lg in legs)
         its.append({"_start": _ts(it.get("startTime")), "_end": _ts(it.get("endTime")),
                     "duration_s": it.get("duration"), "transfers": it.get("transfers"),
                     "legs": legs, **({"suspect_realtime": True} if suspect else {})})
-    its.sort(key=lambda i: bool(i.get("suspect_realtime")))  # doubtful options last
+    return its
+
+
+# Everything but flights (MOTIS mode names); pass modes=[..., "AIRPLANE"] to allow them.
+GROUND_MODES = ("RAIL", "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL", "REGIONAL_FAST_RAIL",
+                "REGIONAL_RAIL", "SUBURBAN", "METRO", "SUBWAY", "TRAM", "BUS", "COACH", "FERRY",
+                "FUNICULAR", "AERIAL_LIFT", "CABLE_CAR", "OTHER")
+_MODE_GROUPS = {"TRAIN": ("RAIL", "HIGHSPEED_RAIL", "LONG_DISTANCE", "NIGHT_RAIL",
+                          "REGIONAL_FAST_RAIL", "REGIONAL_RAIL", "SUBURBAN"),
+                "LOCAL_TRAIN": ("REGIONAL_FAST_RAIL", "REGIONAL_RAIL", "SUBURBAN"),
+                "LIGHT_RAIL": ("TRAM", "SUBWAY", "METRO"), "FLIGHT": ("AIRPLANE",)}
+
+
+def live_connections(origin: str, destination: str, *, departure_time: str | None = None,
+                     arrival_time: str | None = None, max_results: int = 4,
+                     max_transfers: int | None = None, modes: list[str] | None = None,
+                     format: str = "text"):
+    """Journey planning with real-time delays and platforms (Transitous / MOTIS).
+    modes: MOTIS modes or groups TRAIN / LOCAL_TRAIN / LIGHT_RAIL / BUS / FLIGHT ...;
+    default = every ground mode (no flights)."""
+    C._check_format(format)
+    if departure_time and arrival_time:
+        raise ValueError("departure_time and arrival_time are mutually exclusive")
+    o, olab, on, opos = _place(origin)
+    d, dlab, dn, _ = _place(destination, bias=opos)
+    t = C.parse_time(arrival_time or departure_time)
+    now0 = datetime.now(timezone.utc)
+    tm: list[str] = []
+    for m_ in (modes or GROUND_MODES):
+        tm += list(_MODE_GROUPS.get(m_.upper(), (m_.upper(),)))
+    want = max(1, min(int(max_results), 10))
+    # ask for a few extra so options built on implausible real-time data can be dropped
+    params = {"fromPlace": o, "toPlace": d, "numItineraries": min(want + 3, 12),
+              "transitModes": ",".join(dict.fromkeys(tm))}
+    if t:
+        params["time"] = t.strftime("%Y-%m-%dT%H:%M:%SZ")
+    if arrival_time:
+        params["arriveBy"] = "true"
+    if max_transfers is not None:
+        params["maxTransfers"] = int(max_transfers)
+    raw = _http("GET", f"{TRANSITOUS}/v5/plan", params=params)
+    if format == "raw":
+        return raw
+    now = datetime.now(timezone.utc)
+    its = _parse_itineraries(raw)
     notes = [n for n in (on, dn) if n]
+    good = [i for i in its if not i.get("suspect_realtime")]
+    bad = [i for i in its if i.get("suspect_realtime")]
+    bad_modes = {lg.get("mode") for i in bad for lg in i["legs"] if lg.get("suspect_realtime")}
+    if len(good) < want and bad_modes and not modes:
+        # a line with systematically bad predictions (seen: Bonn tram 66 '-20 min') can make
+        # every option depend on it: re-plan without that mode and merge
+        p2 = dict(params, transitModes=",".join(m for m in params["transitModes"].split(",")
+                                                if m not in bad_modes))
+        try:
+            more = [i for i in _parse_itineraries(_http("GET", f"{TRANSITOUS}/v5/plan", params=p2))
+                    if not i.get("suspect_realtime")]
+        except LiveError:
+            more = []
+        seen = {(i["_start"], i["_end"]) for i in good}
+        good += [i for i in more if (i["_start"], i["_end"]) not in seen]
+        good.sort(key=lambda i: (i["_end"], -i["_start"].timestamp()) if not arrival_time
+                  else (-i["_start"].timestamp(), i["_end"]))
+        if more:
+            notes.append(f"re-planned without {'/'.join(sorted(bad_modes))} because of an "
+                         "implausible real-time prediction on that line")
+    if good:
+        its = good[:want]
+        if bad:
+            notes.append(f"dropped {len(bad)} option(s) that rely on an implausible real-time "
+                         "prediction (e.g. a tram 'arriving' 20 min early)")
+    else:  # nothing plausible: show them, clearly flagged
+        its = bad[:want]
     ref = t or now0
     if t and t < now0 - timedelta(minutes=10):
         notes.append("requested time is in the past")
@@ -635,6 +678,10 @@ def _conn_text(res: dict) -> str:
             flags.append("✗ contains a CANCELLED leg")
         if it.get("suspect_realtime"):
             flags.append("⚠ relies on an implausible real-time prediction; may not work")
+        late = [lg for lg in tr if lg.get("needs_delay")]
+        if late:
+            flags.append("⚠ transfer only works because " + ", ".join(
+                f"{lg.get('line')} is late" for lg in late) + " (by timetable it is missed)")
         lines.append(f"{i}. {_clock(it['_start'], tz0, now)} → {_clock(it['_end'], tz1, now)} "
                      f"({S.fmt_duration(it['duration_s'])}) · {it['transfers']} transfer"
                      f"{'s' if it['transfers'] != 1 else ''}" + (" · " + " · ".join(flags) if flags else ""))

@@ -239,3 +239,22 @@ def test_rerank_keeps_geocoder_order_unless_clearly_better():
     x = {"name": "Düren, Kaiserplatz", "type": "STOP"}
     y = {"name": "Kaiserplatz", "areas": [{"name": "Bonn", "default": True}]}
     assert L._rerank([x, y], lambda r: L._score("Bonn, Kaiserplatz", r))[0] is y
+
+
+def test_itinerary_flags():
+    from gmaps_routes import live as L
+
+    def leg(line, dep_s, dep, arr_s, arr):
+        return {"mode": "TRAM", "displayName": line, "realTime": True,
+                "from": {"name": "A", "scheduledDeparture": dep_s, "departure": dep},
+                "to": {"name": "B", "scheduledArrival": arr_s, "arrival": arr}}
+    raw = {"itineraries": [{"startTime": "2026-11-03T12:17:00Z", "endTime": "2026-11-03T13:27:00Z",
+        "duration": 4200, "transfers": 1, "legs": [
+            # 25-min ride predicted as 5 min (20 min early) -> implausible
+            leg("66", "2026-11-03T12:17:00Z", "2026-11-03T12:17:00Z", "2026-11-03T12:42:00Z", "2026-11-03T12:22:00Z"),
+            {"mode": "WALK", "duration": 120},
+            # departs 12:33 by timetable, before the tram's scheduled 12:42 arrival
+            leg("ICE 123", "2026-11-03T12:33:00Z", "2026-11-03T12:36:00Z", "2026-11-03T13:27:00Z", "2026-11-03T13:27:00Z")]}]}
+    it = L._parse_itineraries(raw)[0]
+    assert it["suspect_realtime"] and it["legs"][0]["suspect_realtime"]
+    assert it["legs"][2]["needs_delay"]
