@@ -18,6 +18,7 @@ except ImportError:  # mcp 1.x
 from mcp.types import ToolAnnotations
 
 from . import client as C
+from . import live as L
 
 mcp = _Server(
     "gmaps-routes",
@@ -30,7 +31,12 @@ mcp = _Server(
         "lat,lng; pass its 'place_id:...' as a waypoint. Times: ISO-8601 (naive = local time "
         f"{C.default_tz()}), 'HH:MM', 'tomorrow HH:MM', '+30m', or omit for now. arrival_time ('arrive by') "
         "works for TRANSIT; compare_modes back-computes it for the other modes. Times in the "
-        "output are local. TRANSIT cannot take intermediate stops: route each leg."))
+        "output are local. TRANSIT cannot take intermediate stops: route each leg. "
+        "LIVE data (delays, platforms, cancellations): station_board for a station's "
+        "departures/arrivals (DB OpenBoards when DB keys are set, else Transitous), "
+        "live_connections for journeys with real-time delays (Transitous). Google's transit "
+        "routes are timetable-only; check live_connections or station_board before telling "
+        "someone a train is on time."))
 
 
 # Plain text only: structured output would send every result twice. All tools only read.
@@ -134,6 +140,32 @@ def geocode(query: str | None = None, latlng: str | None = None, place_id: str |
     place_id -> address. Routing tools accept addresses directly; use this to check one."""
     return _out(C.geocode, query, latlng=latlng, place_id=place_id, language=language,
                 region=region, format=format)
+
+
+@mcp.tool(**_TOOL)
+def station_board(station: str, time: str | None = None, arrivals: bool = False,
+                  duration_min: int = 60, max_results: int = 15, all_modes: bool = False,
+                  source: str = "auto", format: str = "text") -> str:
+    """LIVE departure/arrival board: scheduled time, delay (+min), platform and platform
+    changes, cancellations, delay reasons, station disruptions. station: name ('Bonn Hbf'),
+    DHID ('de:05314:61101') or EVA number. Rail only by default; all_modes=true adds bus,
+    tram, subway (Transitous). source: auto (DB OpenBoards if DB keys are configured, else
+    Transitous) | db | transitous."""
+    return _out(L.station_board, station, time=time, arrivals=arrivals,
+                duration_min=duration_min, max_results=max_results, all_modes=all_modes,
+                source=source, format=format)
+
+
+@mcp.tool(**_TOOL)
+def live_connections(origin: str, destination: str, departure_time: str | None = None,
+                     arrival_time: str | None = None, max_results: int = 4,
+                     max_transfers: int | None = None, format: str = "text") -> str:
+    """LIVE journey planning with real-time delays, cancellations and platforms (Transitous /
+    MOTIS: DELFI real-time in Germany, many feeds Europe-wide). Each leg shows scheduled time
+    and +delay. No fares. Places: names, 'lat,lng' or DHID."""
+    return _out(L.live_connections, origin, destination, departure_time=departure_time,
+                arrival_time=arrival_time, max_results=max_results,
+                max_transfers=max_transfers, format=format)
 
 
 def main() -> None:

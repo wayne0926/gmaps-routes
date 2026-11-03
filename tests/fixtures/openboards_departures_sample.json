@@ -1,0 +1,33 @@
+{
+ "_comment": "Hand-built from the OpenBoards 1.0.1.1 OpenAPI schema (no live key yet); replace with a captured response once DB keys exist.",
+ "administrations": [{"administrationId": "80", "operatorCode": "DB", "operatorName": "DB Fernverkehr AG"}],
+ "departures": [
+  {"departureId": "d1", "evaNumber": "8000044", "journeyId": "j1", "timeType": "PREVIEW",
+   "timeSchedule": "2026-11-03T12:14:00+01:00", "time": "2026-11-03T12:21:00+01:00",
+   "platform": {"name": "3"}, "platformSchedule": {"name": "2"}, "messages": [101],
+   "journeyInfo": {"destination": {"evaNumber": "8000284"}, "origin": {"evaNumber": "8000080"},
+                   "headerAdministrationId": "80", "headerJourneyNumber": 29, "scheduledStartTime": "2026-11-03T09:00:00+01:00",
+                   "transportAtStart": {"administrationId": "80", "category": "ICE", "categoryInternal": "ICE", "journeyDescription": "ICE 29", "journeyNumber": 29, "operationalJourneyNumber": "29", "type": "HIGH_SPEED_TRAIN"}, "type": "REGULAR"},
+   "transport": {"administrationId": "80", "category": "ICE", "categoryInternal": "ICE", "journeyDescription": "ICE 29", "journeyNumber": 29, "operationalJourneyNumber": "29", "type": "HIGH_SPEED_TRAIN",
+                 "direction": {"texts": ["Nürnberg Hbf"]},
+                 "via": [{"evaNumber": "8000207", "displayPriority": 1}, {"evaNumber": "8000105", "displayPriority": 2, "cancelled": true}]}},
+  {"departureId": "d2", "evaNumber": "8000044", "journeyId": "j2", "timeType": "SCHEDULE", "cancelled": true,
+   "timeSchedule": "2026-11-03T12:04:00+01:00", "time": "2026-11-03T12:04:00+01:00", "platform": {"name": "1"},
+   "journeyInfo": {"destination": {"evaNumber": "8001510"}, "origin": {"evaNumber": "8000104"}, "headerAdministrationId": "R1", "headerJourneyNumber": 28516, "scheduledStartTime": "2026-11-03T10:00:00+01:00",
+                   "transportAtStart": {"administrationId": "R1", "category": "RE", "categoryInternal": "RE", "journeyDescription": "RE 5 (28516)", "journeyNumber": 28516, "operationalJourneyNumber": "28516", "type": "REGIONAL_TRAIN"}, "type": "REGULAR"},
+   "transport": {"administrationId": "R1", "category": "RE", "categoryInternal": "RE", "journeyDescription": "RE 5 (28516)", "journeyNumber": 28516, "operationalJourneyNumber": "28516", "type": "REGIONAL_TRAIN", "line": {"name": "RE 5"}}}
+ ],
+ "disruptionCommunications": [201],
+ "messages": {
+  "risCauseCodes": [{"messageID": 101, "code": "43", "descriptions": [{"language": "deu", "text": "Verspätung eines vorausfahrenden Zuges"}, {"language": "eng", "text": "Delay of a preceding train"}]}],
+  "disruptions": [{"messageID": 201, "disruptionCommunicationID": "dc1", "disruptionID": "x", "effect": "REDUCED_SERVICE", "descriptions": [{"language": "eng", "text": "Construction work between Bonn and Remagen.", "textShort": "Construction work Bonn–Remagen"}]}]
+ },
+ "meta": {"consideredStopPlaces": ["8000044"]},
+ "stopPlaces": [
+  {"evaNumber": "8000044", "localizedNames": [{"language": "deu", "name": "Bonn Hbf"}]},
+  {"evaNumber": "8000284", "localizedNames": [{"language": "deu", "name": "Nürnberg Hbf"}]},
+  {"evaNumber": "8000207", "localizedNames": [{"language": "deu", "name": "Köln Hbf"}]},
+  {"evaNumber": "8000105", "localizedNames": [{"language": "deu", "name": "Frankfurt(Main)Hbf"}]},
+  {"evaNumber": "8001510", "localizedNames": [{"language": "deu", "name": "Dinslaken"}]}
+ ]
+}

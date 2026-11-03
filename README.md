@@ -26,11 +26,44 @@ Or in `.mcp.json`:
   "env": {"GOOGLE_MAPS_API_KEY": "${GOOGLE_MAPS_API_KEY}"}}}}
 ```
 Tools (all read-only):
+- `station_board` (live)
+- `live_connections` (live)
 - `compute_route`
 - `compare_modes`
 - `compute_route_matrix`
 - `search_places`
 - `geocode`
+
+## Live data: delays, platforms, cancellations
+Google's transit routes are timetable-only. Two live sources are added:
+
+| Tool / CLI | Source | Needs |
+|---|---|---|
+| `station_board` / `gmaps-routes board "Bonn Hbf"` | **DB OpenBoards** (official, DB InfraGO) | `DB_CLIENT_ID` + `DB_API_KEY` |
+| | falls back to **Transitous** (DELFI real-time) | nothing |
+| `live_connections` / `gmaps-routes live A B` | **Transitous** (MOTIS) | nothing |
+
+**`station_board`** shows a station's departures or arrivals: scheduled time, `+delay`, platform
+(with a ⚠ when it changed), cancellations, extra and replacement trains, delay reasons, and station
+disruption texts. It covers rail only; `all_modes` adds buses, trams and subways (Transitous).
+
+**`live_connections`** plans journeys with real-time delays on every leg. Real-time feeds
+sometimes predict impossible early arrivals, for example a 25-minute tram ride as 5 minutes. Such
+legs are flagged `⚠implausible`, and the itineraries that depend on them are listed last.
+
+**DB keys**:
+1. Create an account on the [DB API Marketplace](https://developers.deutschebahn.com/db-api-marketplace/apis/).
+2. Create an application.
+3. Subscribe it to **OpenBoards**, plan *Free* (10 requests/s, no cost).
+4. Put the Client ID and API key in the environment as `DB_CLIENT_ID` and `DB_API_KEY`.
+
+**Station lookup** uses Transitous geocoding, so no extra key is needed. The DHID needed by DB is
+derived from it; DHIDs (`de:05314:61101`) and EVA numbers (`8000044`) are accepted directly.
+
+**Transitous**: free and non-commercial, run by volunteers. Its policy asks for attribution of
+https://transitous.org/sources/; the output includes it.
+
+**Fares**: neither source has them. Google sometimes has them (`compute_route`).
 
 ## CLI
 ```bash

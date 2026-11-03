@@ -1,6 +1,6 @@
 [project]
 name = "gmaps-routes"
-version = "0.3.0"
+version = "0.4.0"
 description = "Google Maps routing (transit/bike first) for LLMs: CLI + stdio MCP server"
 requires-python = ">=3.10"
 dependencies = ["requests", "tzdata"]  # tzdata: legacy zone names Google returns (Europe/Kiev)

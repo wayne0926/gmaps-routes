@@ -174,3 +174,26 @@ def test_cet_fast_path_needs_no_lookup(monkeypatch):
     monkeypatch.setattr(C, "_send", lambda *a, **k: (_ for _ in ()).throw(AssertionError("network")))
     assert C.tz_at(50.73, 7.10) == C.default_tz()  # Bonn
     assert C.tz_at(48.86, 2.35) == C.default_tz()  # Paris (same CET rules)
+
+
+def test_openboards_parser():
+    from gmaps_routes import live as L
+    raw = load("openboards_departures_sample")
+    res = L.parse_db_board(raw, {"name": "Bonn Hbf"}, False, 10)
+    res["_now"] = datetime(2026, 11, 3, 11, 0, tzinfo=timezone.utc)
+    e = res["entries"]
+    assert [x.get("cancelled") for x in e] == [True, None]  # sorted by scheduled time
+    ice = e[1]
+    assert ice["delay_min"] == 7 and ice["platform"] == "3" and ice["platform_planned"] == "2"
+    assert ice["messages"] == ["Delay of a preceding train"] and "Frankfurt(Main)Hbf (cancelled)" in ice["via"]
+    txt = L._board_text(res)
+    assert "RE 5 (28516)" in txt and "CANCELLED" in txt and "Construction work" in txt
+
+
+def test_live_ids_and_platforms():
+    from gmaps_routes import live as L
+    assert L._DHID.search("de-DELFI_de:05314:61101:7:73").group(1) == "de:05314:61101"
+    assert L.find_stop("de:05314:61101")["dhid"] == "de:05314:61101"
+    assert L.find_stop("8000044")["eva"] == "8000044"
+    assert L._platform({"description": "Bahnsteig Gleis 2", "track": "80"}) == "2"
+    assert L._platform({"track": "4a"}) == "4a"

@@ -8,6 +8,7 @@ import json
 import sys
 
 from . import client as C
+from . import live as L
 from .summary import decode_polyline
 
 
@@ -83,6 +84,19 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--components"); g.add_argument("--dry-run", action="store_true")
     _fmt(g)
 
+    b = sub.add_parser("board", help="LIVE station departures/arrivals (DB OpenBoards / Transitous)")
+    b.add_argument("station"); b.add_argument("--time"); b.add_argument("--arrivals", action="store_true")
+    b.add_argument("--minutes", type=int, default=60); b.add_argument("--max", type=int, default=15)
+    b.add_argument("--all-modes", action="store_true", help="include bus/tram/subway")
+    b.add_argument("--source", choices=["auto", "db", "transitous"], default="auto")
+    _fmt(b)
+
+    lv = sub.add_parser("live", help="LIVE connections with real-time delays (Transitous)")
+    lv.add_argument("origin"); lv.add_argument("destination")
+    lv.add_argument("--depart"); lv.add_argument("--arrive")
+    lv.add_argument("--max", type=int, default=4); lv.add_argument("--max-transfers", type=int)
+    _fmt(lv)
+
     d = sub.add_parser("decode", help="decode an encoded polyline")
     d.add_argument("polyline")
     return ap
@@ -122,6 +136,14 @@ def run(a):
         return C.geocode(a.query, latlng=a.latlng, place_id=a.place_id, language=a.lang,
                          region=a.region, components=a.components, format=a.format,
                          dry_run=a.dry_run)
+    if a.cmd == "board":
+        return L.station_board(a.station, time=a.time, arrivals=a.arrivals, duration_min=a.minutes,
+                               max_results=a.max, all_modes=a.all_modes, source=a.source,
+                               format=a.format)
+    if a.cmd == "live":
+        return L.live_connections(a.origin, a.destination, departure_time=a.depart,
+                                  arrival_time=a.arrive, max_results=a.max,
+                                  max_transfers=a.max_transfers, format=a.format)
     if a.cmd == "decode":
         return decode_polyline(a.polyline)
     raise SystemExit(2)
