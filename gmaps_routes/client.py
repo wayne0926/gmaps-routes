@@ -1,27 +1,33 @@
-"""Thin, complete client for Google Maps Platform routing-related REST APIs.
+"""Client for Google Maps Platform routing APIs, tuned for use by an LLM.
 
-Covers:
-  * Routes API  : computeRoutes, computeRouteMatrix (all travel modes, full field mask)
-  * Geocoding   : address <-> lat/lng <-> place_id
-  * Places (New): searchText
+* Routes API  : computeRoutes, computeRouteMatrix (TRANSIT, BICYCLE, WALK, DRIVE, TWO_WHEELER)
+* Places (New): searchText          * Geocoding: forward / reverse / place_id
 
-The API key is read from the environment (GOOGLE_MAPS_API_KEY) and is never
-logged or echoed.  Every function accepts ``dry_run=True`` to return the exact
-request that would be sent (without the key) instead of calling the network.
+Design:
+* one keep-alive HTTP session (TLS handshake once; ~3x lower latency on repeat calls)
+* field masks trimmed to what the output uses (no polylines unless asked) -> 4-10x smaller
+  responses.  Field masks do not change the Routes SKU; features do (see README).
+* every public function returns compact text (format="text"), normalised JSON ("json")
+  or the untouched API response ("raw").
+The API key comes from GOOGLE_MAPS_API_KEY and is never logged or echoed.
 """
 from __future__ import annotations
 
 import copy
 import os
 import re
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import requests
+from requests.adapters import HTTPAdapter
 
+from . import render as R
 from . import summary as S
 
 ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
@@ -32,26 +38,41 @@ PLACES_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 TRAVEL_MODES = ("TRANSIT", "BICYCLE", "WALK", "DRIVE", "TWO_WHEELER")
 TRANSIT_MODES = ("BUS", "SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL")
 TRANSIT_ROUTING = ("LESS_WALKING", "FEWER_TRANSFERS")
+FORMATS = ("text", "json", "raw")
+DETAILS = ("brief", "steps")
 
-# Everything computeRoutes can return.  Parent paths (routes.legs, ...) include
-# all of their children, so new sub-fields are picked up automatically.
+_ROUTE_BASE = [
+    "routes.duration", "routes.staticDuration", "routes.distanceMeters", "routes.routeLabels",
+    "routes.warnings", "routes.optimizedIntermediateWaypointIndex",
+    "routes.travelAdvisory.transitFare", "routes.travelAdvisory.tollInfo",
+    "routes.localizedValues.transitFare", "geocodingResults",
+]
+_STEP_CORE = ["routes.legs.steps.travelMode", "routes.legs.steps.staticDuration",
+              "routes.legs.steps.distanceMeters", "routes.legs.steps.transitDetails"]
+_STEP_NAV = ["routes.legs.steps.navigationInstruction"]
+# for format="raw": everything except per-step polylines (those are huge and rarely useful)
 FULL_ROUTE_FIELDS = ",".join([
-    "routes.routeLabels", "routes.legs", "routes.distanceMeters", "routes.duration",
-    "routes.staticDuration", "routes.polyline", "routes.description", "routes.warnings",
-    "routes.viewport", "routes.travelAdvisory", "routes.optimizedIntermediateWaypointIndex",
-    "routes.localizedValues", "routes.routeToken", "routes.polylineDetails",
-    "geocodingResults",
+    "routes.routeLabels", "routes.distanceMeters", "routes.duration", "routes.staticDuration",
+    "routes.polyline", "routes.description", "routes.warnings", "routes.viewport",
+    "routes.travelAdvisory", "routes.optimizedIntermediateWaypointIndex", "routes.localizedValues",
+    "routes.routeToken", "routes.legs.distanceMeters", "routes.legs.duration",
+    "routes.legs.staticDuration", "routes.legs.startLocation", "routes.legs.endLocation",
+    "routes.legs.travelAdvisory", "routes.legs.localizedValues", "routes.legs.stepsOverview",
+    "routes.legs.steps.distanceMeters", "routes.legs.steps.staticDuration",
+    "routes.legs.steps.startLocation", "routes.legs.steps.endLocation",
+    "routes.legs.steps.navigationInstruction", "routes.legs.steps.travelAdvisory",
+    "routes.legs.steps.localizedValues", "routes.legs.steps.transitDetails",
+    "routes.legs.steps.travelMode", "geocodingResults",
 ])
-FULL_MATRIX_FIELDS = ",".join([
-    "originIndex", "destinationIndex", "status", "condition", "distanceMeters", "duration",
-    "staticDuration", "travelAdvisory", "fallbackInfo", "localizedValues",
-])
-PLACES_BASIC_FIELDS = ",".join(f"places.{f}" for f in (
-    "id", "displayName", "formattedAddress", "shortFormattedAddress", "location", "types",
-    "primaryType", "googleMapsUri"))
-PLACES_DETAILED_FIELDS = PLACES_BASIC_FIELDS + "," + ",".join(f"places.{f}" for f in (
-    "rating", "userRatingCount", "regularOpeningHours", "currentOpeningHours", "websiteUri",
-    "nationalPhoneNumber", "priceLevel", "businessStatus"))
+MATRIX_FIELDS = "originIndex,destinationIndex,status,condition,distanceMeters,duration"
+FULL_MATRIX_FIELDS = MATRIX_FIELDS + ",staticDuration,travelAdvisory,fallbackInfo,localizedValues"
+# Places Text Search: these are Pro-SKU fields; DETAILED adds Enterprise-SKU fields.
+PLACES_BASIC_FIELDS = ",".join("places." + f for f in (
+    "id", "displayName", "shortFormattedAddress", "location", "primaryTypeDisplayName",
+    "googleMapsUri", "businessStatus"))
+PLACES_DETAILED_FIELDS = PLACES_BASIC_FIELDS + "," + ",".join("places." + f for f in (
+    "rating", "userRatingCount", "currentOpeningHours.openNow",
+    "regularOpeningHours.weekdayDescriptions", "nationalPhoneNumber", "websiteUri", "priceLevel"))
 
 
 class GoogleMapsError(RuntimeError):
@@ -66,26 +87,30 @@ def api_key() -> str:
     key = os.environ.get("GOOGLE_MAPS_API_KEY") or os.environ.get("GMAPS_API_KEY")
     if not key:
         raise GoogleMapsError(
-            "No API key: set the GOOGLE_MAPS_API_KEY environment variable "
-            "(Routes API, plus Geocoding API / Places API (New) if you use those tools, "
-            "must be enabled for the key's project).")
+            "No API key: set GOOGLE_MAPS_API_KEY (Routes API; plus Places API (New) / "
+            "Geocoding API for those tools).")
     return key
 
 
-def default_tz() -> ZoneInfo:
-    return ZoneInfo(os.environ.get("GMAPS_TZ", "Europe/Berlin"))
+def default_tz() -> str:
+    return os.environ.get("GMAPS_TZ", "Europe/Berlin")
+
+
+def default_lang() -> str | None:
+    v = os.environ.get("GMAPS_LANG", "en")
+    return v or None
 
 
 # --------------------------------------------------------------------------- inputs
 _LATLNG = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$")
-_REL = re.compile(r"^\+(\d+)\s*([mhd])$")
+_REL = re.compile(r"^\+\s*(\d+)\s*(m|min|h|d)$", re.I)
 
 
-def parse_time(value: str | datetime | None) -> str | None:
-    """-> RFC3339 UTC string.  None/'now' -> None (API uses request time).
+def parse_time(value: str | datetime | None) -> datetime | None:
+    """-> aware UTC datetime, or None for now.
 
-    Accepts ISO-8601 with offset, naive ISO (interpreted in GMAPS_TZ, default
-    Europe/Berlin), or relative '+45m' / '+2h' / '+1d'.
+    ISO-8601 with offset; naive ISO (GMAPS_TZ, default Europe/Berlin); 'HH:MM' (today, or
+    tomorrow if already past); relative '+45m' / '+2h' / '+1d'; None / '' / 'now'.
     """
     if value is None:
         return None
@@ -95,43 +120,49 @@ def parse_time(value: str | datetime | None) -> str | None:
         v = str(value).strip()
         if not v or v.lower() == "now":
             return None
-        m = _REL.match(v)
-        if m:
-            n, unit = int(m.group(1)), m.group(2)
-            dt = datetime.now(timezone.utc) + timedelta(**{{"m": "minutes", "h": "hours", "d": "days"}[unit]: n})
+        if m := _REL.match(v):
+            n, unit = int(m.group(1)), m.group(2).lower()[0]
+            return datetime.now(timezone.utc) + timedelta(
+                **{{"m": "minutes", "h": "hours", "d": "days"}[unit]: n})
+        if re.fullmatch(r"\d{1,2}:\d{2}", v):
+            z = ZoneInfo(default_tz())
+            now = datetime.now(z)
+            h, mi = map(int, v.split(":"))
+            dt = now.replace(hour=h, minute=mi, second=0, microsecond=0)
+            if dt < now - timedelta(minutes=5):
+                dt += timedelta(days=1)
         else:
             try:
                 dt = datetime.fromisoformat(v)
             except ValueError as e:
-                raise ValueError(f"Unparseable time {value!r}; use ISO-8601 like 2026-11-04T08:30 or +45m") from e
+                raise ValueError(f"Unparseable time {value!r}; use ISO-8601 "
+                                 "(2026-11-04T08:30), 'HH:MM', or '+45m'") from e
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=default_tz())
+        dt = dt.replace(tzinfo=ZoneInfo(default_tz()))
+    return dt.astimezone(timezone.utc)
+
+
+def _rfc3339(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def waypoint(spec: Any, *, via: bool = False) -> dict:
-    """Build a Waypoint from a flexible spec.
-
-    str : 'Bonn Hbf' (address/name) | '50.7323,7.0969' | 'place_id:ChIJ...' | 'via:<any of these>'
-    dict: {"lat":..,"lng":..,"heading":..} | {"place_id":..} | {"address":..} | full API Waypoint
-          (extra keys: via, vehicle_stopover, side_of_road)
-    """
+    """str : 'Bonn Hbf' | '50.7323,7.0969' | 'place_id:ChIJ...' | 'via:<any of these>'
+    dict: {"lat","lng"[,"heading"]} | {"place_id"} | {"address"} | an API Waypoint
+          (extra keys: via, vehicle_stopover, side_of_road)"""
     if isinstance(spec, dict):
-        d = dict(spec)
-        out: dict = {}
-        if "waypoint" in d:  # already wrapped (matrix) -> unwrap
-            d = d["waypoint"]
+        d = dict(spec.get("waypoint", spec))
         if any(k in d for k in ("location", "placeId", "address")):
             out = copy.deepcopy(d)
         elif "lat" in d and "lng" in d:
             loc: dict = {"latLng": {"latitude": float(d["lat"]), "longitude": float(d["lng"])}}
             if d.get("heading") is not None:
                 loc["heading"] = int(d["heading"])
-            out["location"] = loc
+            out = {"location": loc}
         elif "place_id" in d:
-            out["placeId"] = d["place_id"]
+            out = {"placeId": d["place_id"]}
         elif "address" in d:
-            out["address"] = d["address"]
+            out = {"address": d["address"]}
         else:
             raise ValueError(f"Unrecognised waypoint dict: {spec!r}")
         if d.get("via") or via:
@@ -144,14 +175,12 @@ def waypoint(spec: Any, *, via: bool = False) -> dict:
     s = str(spec).strip()
     if s.lower().startswith("via:"):
         via, s = True, s[4:].strip()
-    out = {}
-    m = _LATLNG.match(s)
-    if m:
-        out["location"] = {"latLng": {"latitude": float(m.group(1)), "longitude": float(m.group(2))}}
+    if m := _LATLNG.match(s):
+        out = {"location": {"latLng": {"latitude": float(m.group(1)), "longitude": float(m.group(2))}}}
     elif s.lower().startswith(("place_id:", "placeid:")):
-        out["placeId"] = s.split(":", 1)[1].strip()
+        out = {"placeId": s.split(":", 1)[1].strip()}
     elif s:
-        out["address"] = s
+        out = {"address": s}
     else:
         raise ValueError("Empty waypoint")
     if via:
@@ -159,32 +188,36 @@ def waypoint(spec: Any, *, via: bool = False) -> dict:
     return out
 
 
-def _route_modifiers(avoid: list[str] | None, extra: dict | None = None) -> dict | None:
-    avoid = [a.lower() for a in (avoid or [])]
-    mods: dict = {}
-    for flag, key in (("tolls", "avoidTolls"), ("highways", "avoidHighways"),
-                      ("ferries", "avoidFerries"), ("indoor", "avoidIndoor"),
-                      ("tunnels", "avoidTunnels")):
-        if flag in avoid:
-            mods[key] = True
-    unknown = set(avoid) - {"tolls", "highways", "ferries", "indoor", "tunnels"}
-    if unknown:
-        raise ValueError(f"Unknown avoid option(s): {sorted(unknown)}")
-    if extra:
-        mods.update(extra)
-    return mods or None
+def _label(spec: Any) -> str:
+    if isinstance(spec, dict):
+        d = spec.get("waypoint", spec)
+        return str(d.get("address") or d.get("place_id") or d.get("placeId")
+                   or f"{d.get('lat')},{d.get('lng')}")
+    s = str(spec).strip()
+    return s[4:].strip() if s.lower().startswith("via:") else s
+
+
+def _route_modifiers(avoid: list[str] | None) -> dict | None:
+    names = {"tolls": "avoidTolls", "highways": "avoidHighways", "ferries": "avoidFerries",
+             "indoor": "avoidIndoor"}
+    avoid = [a.lower().strip() for a in (avoid or []) if a.strip()]
+    bad = set(avoid) - set(names)
+    if bad:
+        raise ValueError(f"Unknown avoid option(s) {sorted(bad)}; allowed: {sorted(names)}")
+    return {names[a]: True for a in avoid} or None
 
 
 def _transit_prefs(modes: list[str] | None, routing: str | None) -> dict | None:
     prefs: dict = {}
     if modes:
-        bad = [m for m in (x.upper() for x in modes) if m not in TRANSIT_MODES]
+        ms = [m.upper() for m in modes]
+        bad = [m for m in ms if m not in TRANSIT_MODES]
         if bad:
             raise ValueError(f"Unknown transit mode(s) {bad}; allowed: {TRANSIT_MODES}")
-        prefs["allowedTravelModes"] = [m.upper() for m in modes]
+        prefs["allowedTravelModes"] = ms
     if routing:
         if routing.upper() not in TRANSIT_ROUTING:
-            raise ValueError(f"transit routing must be one of {TRANSIT_ROUTING}")
+            raise ValueError(f"transit_routing must be one of {TRANSIT_ROUTING}")
         prefs["routingPreference"] = routing.upper()
     return prefs or None
 
@@ -198,7 +231,27 @@ def _deep_merge(base: dict, extra: dict) -> dict:
     return base
 
 
+def _check_format(fmt: str) -> None:
+    if fmt not in FORMATS:
+        raise ValueError(f"format must be one of {FORMATS}")
+
+
 # --------------------------------------------------------------------------- http
+_lock = threading.Lock()
+_sess: requests.Session | None = None
+
+
+def _session() -> requests.Session:
+    """One shared keep-alive session (urllib3's pool is thread-safe), so the parallel
+    compare_modes requests and later calls all reuse warm TLS connections."""
+    global _sess
+    with _lock:
+        if _sess is None:
+            _sess = requests.Session()
+            _sess.mount("https://", HTTPAdapter(pool_connections=4, pool_maxsize=8))
+        return _sess
+
+
 def _scrub(text: str, key: str | None) -> str:
     return text.replace(key, "***") if key and key in text else text
 
@@ -215,43 +268,41 @@ def _send(method: str, url: str, *, headers: dict | None = None, json: Any = Non
     last: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            r = requests.request(method, url, headers=headers, json=json, params=params, timeout=45)
-        except requests.RequestException as e:  # may contain the URL (and key) -> scrub
-            last = GoogleMapsError(_scrub(f"{type(e).__name__}: {e}", key))
-            time.sleep(1.5 * (attempt + 1))
+            r = _session().request(method, url, headers=headers, json=json, params=params,
+                                   timeout=(5, 25))
+        except requests.RequestException as e:  # message may contain the URL (and key)
+            last = GoogleMapsError(_scrub(f"network error: {type(e).__name__}: {e}", key))
+            time.sleep(0.5 * 2 ** attempt)
             continue
-        if r.status_code in (429, 500, 503) and attempt < retries:
-            time.sleep(1.5 * (attempt + 1))
+        if r.status_code in (429, 500, 502, 503, 504) and attempt < retries:
+            ra = r.headers.get("Retry-After", "")
+            time.sleep(min(float(ra), 5.0) if ra.replace(".", "", 1).isdigit() else 0.5 * 2 ** attempt)
             continue
         try:
             payload = r.json()
         except ValueError:
             payload = {"raw_text": r.text[:2000]}
         if r.status_code >= 400:
-            err = payload.get("error", payload) if isinstance(payload, dict) else payload
-            msg = err.get("message") if isinstance(err, dict) else str(err)
-            raise GoogleMapsError(_scrub(f"HTTP {r.status_code} {err.get('status', '') if isinstance(err, dict) else ''}: {msg}", key),
+            err = payload.get("error", payload) if isinstance(payload, dict) else {}
+            msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+            st = err.get("status", "") if isinstance(err, dict) else ""
+            raise GoogleMapsError(_scrub(f"HTTP {r.status_code} {st}: {msg}", key),
                                   r.status_code, payload)
         return payload
     raise last or GoogleMapsError("request failed")
 
 
 # --------------------------------------------------------------------------- routes
-def _maps_url(origin: Any, destination: Any, intermediates: list | None, mode: str) -> str:
+def maps_url(origin: Any, destination: Any, intermediates: list | None, mode: str,
+             depart: datetime | None = None, arrive: datetime | None = None) -> str:
     def txt(s: Any) -> tuple[str, str | None]:
-        if isinstance(s, dict):
-            if "place_id" in s:
-                return s["place_id"], s["place_id"]
-            if "lat" in s:
-                return f"{s['lat']},{s['lng']}", None
-            return str(s.get("address", "")), None
-        s = str(s).strip()
-        if s.lower().startswith("via:"):
-            s = s[4:].strip()
-        if s.lower().startswith(("place_id:", "placeid:")):
-            pid = s.split(":", 1)[1].strip()
-            return pid, pid
-        return s, None
+        w = waypoint(s)
+        if "placeId" in w:
+            return _label(s), w["placeId"]
+        if "location" in w:
+            ll = w["location"]["latLng"]
+            return f"{ll['latitude']},{ll['longitude']}", None
+        return w.get("address", ""), None
 
     o, opid = txt(origin)
     d, dpid = txt(destination)
@@ -270,66 +321,74 @@ def _maps_url(origin: Any, destination: Any, intermediates: list | None, mode: s
 def build_route_request(origin, destination, *, intermediates=None, travel_mode="TRANSIT",
                         departure_time=None, arrival_time=None, alternatives=True,
                         transit_modes=None, transit_routing=None, routing_preference=None,
-                        traffic_model=None, avoid=None, route_modifiers=None, units="METRIC",
-                        language=None, region=None, optimize_waypoint_order=False,
-                        polyline_quality="HIGH_QUALITY", geojson=False, extra_computations=None,
+                        traffic_model=None, avoid=None, units="METRIC", language=None,
+                        region=None, optimize_waypoint_order=False, polyline=False,
+                        polyline_quality=None, geojson=False, extra_computations=None,
                         reference_routes=None, extra_request=None) -> tuple[dict, list[str]]:
     mode = travel_mode.upper()
     if mode not in TRAVEL_MODES:
         raise ValueError(f"travel_mode must be one of {TRAVEL_MODES}")
     notes: list[str] = []
-    dep, arr = parse_time(departure_time), parse_time(arrival_time)
+    dep = parse_time(departure_time)
+    arr = parse_time(arrival_time)
     if dep and arr:
         raise ValueError("departure_time and arrival_time are mutually exclusive")
     if arr and mode != "TRANSIT":
-        raise ValueError("arrival_time is only supported for TRANSIT; use departure_time for other modes")
+        raise ValueError("arrival_time is only supported for TRANSIT (for other modes, leave "
+                         "by arrival minus travel time; compare_modes does this for you)")
+    if intermediates and mode == "TRANSIT":
+        raise ValueError("TRANSIT does not support intermediate waypoints; route each leg "
+                         "separately")
 
-    body: dict = {
-        "origin": waypoint(origin),
-        "destination": waypoint(destination),
-        "travelMode": mode,
-        "polylineQuality": polyline_quality,
-        "polylineEncoding": "GEO_JSON_LINESTRING" if geojson else "ENCODED_POLYLINE",
-        "units": units.upper(),
-    }
+    body: dict = {"origin": waypoint(origin), "destination": waypoint(destination),
+                  "travelMode": mode, "units": units.upper()}
     if intermediates:
         body["intermediates"] = [waypoint(i) for i in intermediates]
         if alternatives:
-            notes.append("alternatives disabled: the API returns none when intermediate waypoints are used")
+            notes.append("no alternatives: the API returns none when intermediates are used")
         alternatives = False
-        if mode == "TRANSIT":
-            notes.append("TRANSIT with intermediate waypoints is not supported by the API and will likely be rejected")
+        if len(intermediates) > 25:
+            raise ValueError("at most 25 intermediate waypoints")
     if optimize_waypoint_order:
         if not intermediates:
             raise ValueError("optimize_waypoint_order needs at least one intermediate")
         if any(w.get("via") for w in body["intermediates"]):
             raise ValueError("optimize_waypoint_order cannot be combined with 'via' intermediates")
         body["optimizeWaypointOrder"] = True
-    body["computeAlternativeRoutes"] = bool(alternatives)
+    if alternatives:
+        body["computeAlternativeRoutes"] = True
+    if polyline or polyline_quality or geojson:
+        body["polylineQuality"] = (polyline_quality or "OVERVIEW").upper()
+        body["polylineEncoding"] = "GEO_JSON_LINESTRING" if geojson else "ENCODED_POLYLINE"
 
     if mode in ("DRIVE", "TWO_WHEELER"):
         body["routingPreference"] = (routing_preference or "TRAFFIC_AWARE").upper()
         if traffic_model:
             body["trafficModel"] = traffic_model.upper()
     elif routing_preference or traffic_model:
-        notes.append(f"routing_preference/traffic_model ignored: only valid for DRIVE/TWO_WHEELER (mode is {mode})")
+        notes.append(f"routing_preference/traffic_model ignored for {mode}")
 
     if mode == "TRANSIT":
         tp = _transit_prefs(transit_modes, transit_routing)
         if tp:
             body["transitPreferences"] = tp
     elif transit_modes or transit_routing:
-        notes.append(f"transit preferences ignored: mode is {mode}")
+        notes.append(f"transit preferences ignored for {mode}")
 
-    mods = _route_modifiers(avoid, route_modifiers)
+    mods = _route_modifiers(avoid)
     if mods:
-        body["routeModifiers"] = mods
-    if dep:
-        body["departureTime"] = dep
+        if mode == "TRANSIT":
+            notes.append("avoid options ignored for TRANSIT")
+        else:
+            body["routeModifiers"] = mods
+    # A departure time at/before 'now' is rejected for traffic-aware modes; treat as 'now'.
+    if dep and (mode == "TRANSIT" or dep > datetime.now(timezone.utc) + timedelta(seconds=60)):
+        body["departureTime"] = _rfc3339(dep)
     if arr:
-        body["arrivalTime"] = arr
-    if language:
-        body["languageCode"] = language
+        body["arrivalTime"] = _rfc3339(arr)
+    lang = language or default_lang()
+    if lang:
+        body["languageCode"] = lang
     if region:
         body["regionCode"] = region
     if extra_computations:
@@ -341,76 +400,134 @@ def build_route_request(origin, destination, *, intermediates=None, travel_mode=
     return body, notes
 
 
+def _route_mask(mode: str, detail: str, body: dict) -> str:
+    f = list(_ROUTE_BASE)
+    if mode == "TRANSIT" or detail == "steps":
+        f += _STEP_CORE
+    if detail == "steps":
+        f += _STEP_NAV
+    if "polylineQuality" in body:
+        f.append("routes.polyline")
+    return ",".join(f)
+
+
 def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRANSIT",
-                   departure_time=None, arrival_time=None, alternatives=True,
-                   transit_modes=None, transit_routing=None, routing_preference=None,
-                   traffic_model=None, avoid=None, route_modifiers=None, units="METRIC",
-                   language=None, region=None, optimize_waypoint_order=False,
-                   polyline_quality="HIGH_QUALITY", geojson=False, extra_computations=None,
-                   reference_routes=None, extra_request=None, fields=None,
-                   output="both", dry_run=False) -> dict:
-    """Compute routes.  output: 'both' (summary + raw), 'summary', or 'raw'."""
-    if output not in ("both", "summary", "raw"):
-        raise ValueError("output must be both|summary|raw")
+                   departure_time=None, arrival_time=None, alternatives=True, max_routes=None,
+                   detail="brief", format="text", fields=None, dry_run=False, **opts):
+    """Route A->B.  detail: brief (default; transit legs always included) | steps (turn-by-turn).
+    format: text | json | raw.  Other options: see build_route_request."""
+    _check_format(format)
+    if detail not in DETAILS:
+        raise ValueError(f"detail must be one of {DETAILS}")
+    now = datetime.now(timezone.utc)
     body, notes = build_route_request(
         origin, destination, intermediates=intermediates, travel_mode=travel_mode,
         departure_time=departure_time, arrival_time=arrival_time, alternatives=alternatives,
-        transit_modes=transit_modes, transit_routing=transit_routing,
-        routing_preference=routing_preference, traffic_model=traffic_model, avoid=avoid,
-        route_modifiers=route_modifiers, units=units, language=language, region=region,
-        optimize_waypoint_order=optimize_waypoint_order, polyline_quality=polyline_quality,
-        geojson=geojson, extra_computations=extra_computations, reference_routes=reference_routes,
-        extra_request=extra_request)
-    mask = fields or FULL_ROUTE_FIELDS
+        **opts)
+    mode = body["travelMode"]
+    mask = fields or (FULL_ROUTE_FIELDS if format == "raw" else _route_mask(mode, detail, body))
     if dry_run:
         return {"url": ROUTES_URL, "field_mask": mask, "body": body, "notes": notes}
     raw = _send("POST", ROUTES_URL, json=body,
                 headers={"X-Goog-FieldMask": mask, "Content-Type": "application/json"})
-    mode = body["travelMode"]
-    out: dict = {"travel_mode": mode, "notes": notes,
-                 "maps_url": _maps_url(origin, destination, intermediates, mode)}
-    if output in ("both", "summary"):
-        out["routes"] = S.summarize_routes(raw, default_tz=default_tz().key)
-        if mode == "TRANSIT" and not body.get("arrivalTime"):
-            # API 'duration' excludes waiting for the vehicle; add request-time -> final arrival
-            start = (datetime.fromisoformat(body["departureTime"].replace("Z", "+00:00"))
-                     if body.get("departureTime") else datetime.now(timezone.utc))
-            for r in out["routes"]:
-                if r.get("last_arrival_time"):
-                    end = datetime.fromisoformat(r["last_arrival_time"].replace("Z", "+00:00"))
-                    secs = max(0.0, (end - start).total_seconds())
-                    r["door_to_door_s"], r["door_to_door_text"] = secs, S.fmt_duration(secs)
-        if not raw.get("routes"):
-            out["warning"] = "No route found for this request."
-    if output in ("both", "raw"):
-        out["raw"] = raw
+    if format == "raw":
+        return raw
+    tz = default_tz()
+    dep = parse_time(departure_time)
+    arr = parse_time(arrival_time)
+    anchor = arr or dep or now
+    routes = [S.summarize_route(r, tz=tz, mode=mode, depart_ref=None if arr else (dep or now),
+                                arrive_ref=arr, with_steps=detail == "steps")
+              for r in raw.get("routes", [])]
+    if mode == "TRANSIT":
+        # API order is not strictly by arrival; sort so option 1 is the best one
+        key = (lambda r: -(r.get("leave") or now).timestamp()) if arr else \
+              (lambda r: _by_arrival(r, now))
+        routes.sort(key=key)
+    if max_routes:
+        routes = routes[:max_routes]
+    if not routes:
+        notes += S.geocoding_problems(raw)
+    res = {"travel_mode": mode, "routes": routes, "notes": notes,
+           "maps_url": maps_url(origin, destination, intermediates, mode),
+           "_tz": tz,
+           "_query": {"origin": _label(origin), "destination": _label(destination),
+                      "via": [_label(i) for i in intermediates or []], "now": now,
+                      "depart_at": dep, "arrive_by": arr, "anchor": anchor}}
+    return R.routes_text(res) if format == "text" else _json(res)
+
+
+def _by_arrival(r: dict, now: datetime) -> tuple:
+    """Earliest arrival first; on ties, the later (shorter) departure first."""
+    far = now + timedelta(days=9)
+    return ((r.get("arrive") or far).timestamp(), -(r.get("leave") or now).timestamp())
+
+
+def _json(res: dict) -> dict:
+    tz = res.get("_tz", default_tz())
+    out = S.finalize({k: v for k, v in res.items() if not k.startswith("_")}, tz)
+    if "_query" in res:
+        q = res["_query"]
+        out["query"] = S.finalize({k: v for k, v in q.items() if k != "anchor" and v not in (None, [])}, tz)
     return out
 
 
 def compare_modes(origin, destination, *, modes=("TRANSIT", "BICYCLE", "WALK", "DRIVE"),
-                  departure_time=None, arrival_time=None, output="summary", **kwargs) -> dict:
-    """Same origin/destination across several modes; one best-route headline per mode."""
-    results: dict = {}
+                  departure_time=None, arrival_time=None, format="text", **opts):
+    """Same trip in several modes (requests run in parallel).  Ranked by earliest arrival,
+    or, with arrival_time, by latest possible departure."""
+    _check_format(format)
+    modes = [m.upper() for m in modes]
+    now = datetime.now(timezone.utc)
+    arr = parse_time(arrival_time)
+    dep = parse_time(departure_time)
+    tz = default_tz()
     notes: list[str] = []
-    for m in modes:
-        m = m.upper()
-        try:
-            r = compute_routes(
-                origin, destination, travel_mode=m, alternatives=False, output=output,
-                departure_time=departure_time,
-                arrival_time=arrival_time if m == "TRANSIT" else None, **kwargs)
-            if arrival_time and m != "TRANSIT":
-                notes.append(f"{m}: arrival_time only applies to TRANSIT; computed for departure now")
-            results[m] = {"best": (r.get("routes") or [None])[0], "maps_url": r["maps_url"],
-                          **({"raw": r["raw"]} if "raw" in r else {}), **({"notes": r["notes"]} if r["notes"] else {})}
-        except (GoogleMapsError, ValueError) as e:
-            results[m] = {"error": str(e)}
-    def _total(b: dict) -> float | None:  # transit: include waiting time
-        return b.get("door_to_door_s", b.get("duration_s"))
 
-    ranked = sorted(((m, _total(v["best"])) for m, v in results.items()
-                     if v.get("best") and _total(v["best"]) is not None), key=lambda x: x[1])
-    return {"fastest_first": [m for m, _ in ranked], "modes": results, "notes": notes}
+    def one(m: str):
+        body, n = build_route_request(origin, destination, travel_mode=m, alternatives=m == "TRANSIT",
+                                      departure_time=departure_time,
+                                      arrival_time=arrival_time if m == "TRANSIT" else None, **opts)
+        raw = _send("POST", ROUTES_URL, json=body, headers={
+            "X-Goog-FieldMask": _route_mask(m, "brief", body), "Content-Type": "application/json"})
+        rs = [S.summarize_route(r, tz=tz, mode=m, depart_ref=None if arr else (dep or now),
+                                arrive_ref=arr, with_steps=False) for r in raw.get("routes", [])]
+        if m == "TRANSIT" and rs:
+            rs.sort(key=(lambda r: -(r.get("leave") or now).timestamp()) if arr else
+                    (lambda r: _by_arrival(r, now)))
+        if not rs:
+            n = n + S.geocoding_problems(raw)
+        return m, rs, n, raw
+
+    results: dict = {}
+    raws: dict = {}
+    with ThreadPoolExecutor(max_workers=len(modes)) as ex:
+        futs = [ex.submit(one, m) for m in modes]
+        for f in futs:
+            try:
+                m, rs, n, raw = f.result()
+                results[m] = {"best": rs[0] if rs else None,
+                              "maps_url": maps_url(origin, destination, None, m)}
+                raws[m] = raw
+                notes += [f"{m}: {x}" for x in n]
+            except (GoogleMapsError, ValueError) as e:
+                results[modes[futs.index(f)]] = {"error": str(e)}
+    if format == "raw":
+        return raws
+    if arr and any(m in ("DRIVE", "TWO_WHEELER") for m in modes):
+        notes.append("DRIVE leave time = arrival minus current traffic estimate (approximate)")
+
+    def score(m):
+        b = results[m].get("best") or {}
+        if arr:
+            return -(b["leave"].timestamp()) if b.get("leave") else None
+        return b["arrive"].timestamp() if b.get("arrive") else b.get("duration_s")
+
+    ranking = sorted((m for m in results if score(m) is not None), key=score)
+    res = {"ranking": ranking, "modes": results, "notes": notes, "_tz": tz,
+           "_query": {"origin": _label(origin), "destination": _label(destination), "now": now,
+                      "depart_at": dep, "arrive_by": arr, "anchor": arr or dep or now}}
+    return R.compare_text(res) if format == "text" else _json(res)
 
 
 # --------------------------------------------------------------------------- matrix
@@ -419,7 +536,8 @@ def compute_route_matrix(origins: list, destinations: list, *, travel_mode="TRAN
                          transit_routing=None, routing_preference=None, traffic_model=None,
                          avoid=None, units="METRIC", language=None, region=None,
                          extra_computations=None, extra_request=None, fields=None,
-                         output="both", dry_run=False) -> dict:
+                         format="text", dry_run=False):
+    _check_format(format)
     mode = travel_mode.upper()
     if mode not in TRAVEL_MODES:
         raise ValueError(f"travel_mode must be one of {TRAVEL_MODES}")
@@ -430,20 +548,27 @@ def compute_route_matrix(origins: list, destinations: list, *, travel_mode="TRAN
         raise ValueError("arrival_time is only supported for TRANSIT")
     notes: list[str] = []
     n = len(origins) * len(destinations)
-    limit = 100 if mode == "TRANSIT" else 625
+    rp = (routing_preference or "TRAFFIC_AWARE").upper() if mode in ("DRIVE", "TWO_WHEELER") else None
+    limit = 100 if mode == "TRANSIT" or rp == "TRAFFIC_AWARE_OPTIMAL" else 625
     if n > limit:
-        raise ValueError(f"{len(origins)}x{len(destinations)}={n} elements exceeds the {limit}-element limit for {mode}")
+        raise ValueError(f"{len(origins)}x{len(destinations)}={n} elements exceeds the "
+                         f"{limit}-element limit for this request")
     body: dict = {
         "origins": [{"waypoint": waypoint(o)} for o in origins],
         "destinations": [{"waypoint": waypoint(d)} for d in destinations],
         "travelMode": mode, "units": units.upper(),
     }
+    named = sum(1 for w in body["origins"] + body["destinations"]
+                if "address" in w["waypoint"] or "placeId" in w["waypoint"])
+    if named > 50:
+        raise ValueError(f"{named} origins+destinations given as address/place_id; the API "
+                         "allows 50 (use lat,lng for the rest)")
     mods = _route_modifiers(avoid)
-    if mods:
+    if mods and mode != "TRANSIT":
         for o in body["origins"]:
             o["routeModifiers"] = mods
-    if mode in ("DRIVE", "TWO_WHEELER"):
-        body["routingPreference"] = (routing_preference or "TRAFFIC_AWARE").upper()
+    if rp:
+        body["routingPreference"] = rp
         if traffic_model:
             body["trafficModel"] = traffic_model.upper()
     elif routing_preference or traffic_model:
@@ -452,35 +577,43 @@ def compute_route_matrix(origins: list, destinations: list, *, travel_mode="TRAN
         tp = _transit_prefs(transit_modes, transit_routing)
         if tp:
             body["transitPreferences"] = tp
-    if dep:
-        body["departureTime"] = dep
+    if dep and (mode == "TRANSIT" or dep > datetime.now(timezone.utc) + timedelta(seconds=60)):
+        body["departureTime"] = _rfc3339(dep)
     if arr:
-        body["arrivalTime"] = arr
-    if language:
-        body["languageCode"] = language
+        body["arrivalTime"] = _rfc3339(arr)
+    lang = language or default_lang()
+    if lang:
+        body["languageCode"] = lang
     if region:
         body["regionCode"] = region
     if extra_computations:
         body["extraComputations"] = [e.upper() for e in extra_computations]
     if extra_request:
         _deep_merge(body, extra_request)
-    mask = fields or FULL_MATRIX_FIELDS
+    mask = fields or (FULL_MATRIX_FIELDS if format == "raw" else MATRIX_FIELDS)
     if dry_run:
         return {"url": MATRIX_URL, "field_mask": mask, "body": body, "notes": notes}
     raw = _send("POST", MATRIX_URL, json=body,
                 headers={"X-Goog-FieldMask": mask, "Content-Type": "application/json"})
-    out: dict = {"travel_mode": mode, "notes": notes}
-    if output in ("both", "summary"):
-        out["matrix"] = S.summarize_matrix(raw, origins, destinations)
-    if output in ("both", "raw"):
-        out["raw"] = raw
+    if format == "raw":
+        return raw
+    if mode == "TRANSIT":
+        notes.append("TRANSIT matrix durations exclude the initial wait for the vehicle")
+    res = {"travel_mode": mode, "matrix": S.summarize_matrix(raw, origins, destinations),
+           "notes": notes, "_origins": [_label(o) for o in origins],
+           "_destinations": [_label(d) for d in destinations]}
+    if format == "text":
+        return R.matrix_text(res)
+    out = _json(res)
+    out["origins"], out["destinations"] = res["_origins"], res["_destinations"]
     return out
 
 
 # --------------------------------------------------------------------------- geocode
 def geocode(query: str | None = None, *, latlng: str | None = None, place_id: str | None = None,
-            language=None, region=None, components=None, dry_run=False) -> dict:
-    """Forward (query), reverse (latlng='lat,lng') or place_id lookup."""
+            language=None, region=None, components=None, format="text", dry_run=False):
+    """Forward (query), reverse (latlng='lat,lng') or place_id lookup (Geocoding API)."""
+    _check_format(format)
     if sum(x is not None for x in (query, latlng, place_id)) != 1:
         raise ValueError("give exactly one of query, latlng, place_id")
     params: dict = {}
@@ -490,8 +623,9 @@ def geocode(query: str | None = None, *, latlng: str | None = None, place_id: st
         params["latlng"] = latlng
     if place_id is not None:
         params["place_id"] = place_id
-    if language:
-        params["language"] = language
+    lang = language or default_lang()
+    if lang:
+        params["language"] = lang
     if region:
         params["region"] = region
     if components:
@@ -502,38 +636,58 @@ def geocode(query: str | None = None, *, latlng: str | None = None, place_id: st
     st = raw.get("status")
     if st not in ("OK", "ZERO_RESULTS"):
         raise GoogleMapsError(f"Geocoding {st}: {raw.get('error_message', '')}", 200, raw)
-    return raw
+    if format == "raw":
+        return raw
+    results = [{"address": r.get("formatted_address"),
+                "lat": r["geometry"]["location"]["lat"], "lng": r["geometry"]["location"]["lng"],
+                "place_id": r.get("place_id"), "types": r.get("types"),
+                "precision": r["geometry"].get("location_type"),
+                **({"partial_match": True} if r.get("partial_match") else {})}
+               for r in raw.get("results", [])[:5]]
+    res = {"results": results}
+    return R.geocode_text(res) if format == "text" else res
 
 
 # --------------------------------------------------------------------------- places
-def search_places(text: str, *, near: str | None = None, radius_m: float = 5000,
-                  max_results: int = 10, included_type: str | None = None,
+def search_places(text: str, *, near: str | None = None, radius_m: float = 3000,
+                  max_results: int = 8, included_type: str | None = None,
                   open_now: bool | None = None, min_rating: float | None = None,
-                  language=None, region=None, detailed=False, fields=None,
-                  extra_request=None, dry_run=False) -> dict:
-    """Places API (New) Text Search.  `near` = 'lat,lng' biases results (radius_m)."""
+                  rank_by: str | None = None, language=None, region=None, detailed=False,
+                  fields=None, extra_request=None, format="text", dry_run=False):
+    """Places API (New) Text Search.  near='lat,lng' biases results to a circle (radius_m)
+    and adds straight-line distance.  detailed adds rating/hours/phone/web (Enterprise SKU)."""
+    _check_format(format)
     body: dict = {"textQuery": text, "pageSize": max(1, min(int(max_results), 20))}
+    center = None
     if near:
         m = _LATLNG.match(near)
         if not m:
-            raise ValueError("near must be 'lat,lng'")
-        body["locationBias"] = {"circle": {"center": {"latitude": float(m.group(1)),
-                                                      "longitude": float(m.group(2))},
-                                           "radius": float(radius_m)}}
+            raise ValueError("near must be 'lat,lng' (geocode an address first)")
+        center = (float(m.group(1)), float(m.group(2)))
+        body["locationBias"] = {"circle": {"center": {"latitude": center[0], "longitude": center[1]},
+                                           "radius": float(min(radius_m, 50000))}}
     if included_type:
         body["includedType"] = included_type
     if open_now is not None:
         body["openNow"] = open_now
     if min_rating is not None:
         body["minRating"] = min_rating
-    if language:
-        body["languageCode"] = language
+    if rank_by:
+        body["rankPreference"] = rank_by.upper()
+    lang = language or default_lang()
+    if lang:
+        body["languageCode"] = lang
     if region:
         body["regionCode"] = region
     if extra_request:
         _deep_merge(body, extra_request)
-    mask = fields or (PLACES_DETAILED_FIELDS if detailed else PLACES_BASIC_FIELDS)
+    mask = fields or (PLACES_DETAILED_FIELDS if detailed or min_rating or open_now
+                      else PLACES_BASIC_FIELDS)
     if dry_run:
         return {"url": PLACES_SEARCH_URL, "field_mask": mask, "body": body}
-    return _send("POST", PLACES_SEARCH_URL, json=body,
-                 headers={"X-Goog-FieldMask": mask, "Content-Type": "application/json"})
+    raw = _send("POST", PLACES_SEARCH_URL, json=body,
+                headers={"X-Goog-FieldMask": mask, "Content-Type": "application/json"})
+    if format == "raw":
+        return raw
+    res = {"query": text, "places": [S.summarize_place(p, center) for p in raw.get("places", [])]}
+    return R.places_text(res) if format == "text" else res

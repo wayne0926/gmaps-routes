@@ -1,13 +1,17 @@
 [project]
 name = "gmaps-routes"
-version = "0.1.0"
-description = "Full-featured Google Maps Routes API wrapper (CLI + MCP server)"
+version = "0.2.0"
+description = "Google Maps routing (transit/bike first) for LLMs: CLI + stdio MCP server"
 requires-python = ">=3.10"
 dependencies = ["requests"]
 
 [project.optional-dependencies]
-mcp = ["mcp"]
+mcp = ["mcp>=1.10"]
 test = ["pytest"]
+
+[project.scripts]
+gmaps-routes = "gmaps_routes.cli:main"
+gmaps-routes-mcp = "gmaps_routes.mcp_server:main"
 
 [build-system]
 requires = ["setuptools>=61"]

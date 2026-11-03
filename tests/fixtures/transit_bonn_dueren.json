@@ -1,0 +1,2033 @@
+{
+ "routes": [
+  {
+   "legs": [
+    {
+     "distanceMeters": 72598,
+     "duration": "4283s",
+     "steps": [
+      {
+       "distanceMeters": 20,
+       "staticDuration": "14s",
+       "navigationInstruction": {
+        "maneuver": "DEPART",
+        "instructions": "Head southwest on Kaiserpl. toward Kaiserstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "20 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 43,
+       "staticDuration": "34s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right onto Maximilianstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "43 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 11,
+       "staticDuration": "10s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "11 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 106,
+       "staticDuration": "81s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "0.1 km"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 2,
+       "staticDuration": "2s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "2 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 33436,
+       "staticDuration": "1440s",
+       "navigationInstruction": {
+        "instructions": "Train towards Dinslaken Bahnhof"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "33.4 km"
+        },
+        "staticDuration": {
+         "text": "24 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Köln Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.94303,
+            "longitude": 6.95873
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T07:28:00Z",
+         "departureStop": {
+          "name": "Bonn Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.731939999999994,
+            "longitude": 7.09734
+           }
+          }
+         },
+         "departureTime": "2026-11-04T07:04:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "8:28 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "8:04 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Dinslaken Bahnhof",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "National Express",
+           "phoneNumber": "+49 221 13999444",
+           "uri": "https://nationalexpress.de/"
+          }
+         ],
+         "name": "Re 5",
+         "color": "#f25f17",
+         "nameShort": "RE5",
+         "textColor": "#ffffff",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 3
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 2,
+       "staticDuration": "1s",
+       "navigationInstruction": {
+        "maneuver": "DEPART",
+        "instructions": "Head northwest on Bahnhofsvorpl."
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "2 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 10,
+       "staticDuration": "9s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "10 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "staticDuration": "44s",
+       "navigationInstruction": {
+        "instructions": "Take entrance Dom"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "1 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 87,
+       "staticDuration": "89s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "87 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 38811,
+       "staticDuration": "1500s",
+       "navigationInstruction": {
+        "instructions": "Train towards Aachen Hbf"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "38.8 km"
+        },
+        "staticDuration": {
+         "text": "25 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Düren",
+          "location": {
+           "latLng": {
+            "latitude": 50.80952,
+            "longitude": 6.48245
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T08:12:00Z",
+         "departureStop": {
+          "name": "Köln Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.94303,
+            "longitude": 6.958729
+           }
+          }
+         },
+         "departureTime": "2026-11-04T07:47:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "9:12 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "8:47 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Aachen Hbf",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "DB Regio AG NRW",
+           "uri": "http://www.dbregio.de/db_regio/view/index.shtml"
+          }
+         ],
+         "nameShort": "RE9",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 3
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 67,
+       "staticDuration": "62s",
+       "navigationInstruction": {
+        "instructions": "Take exit Düren, Bahnhof"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "67 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 3,
+       "staticDuration": "0s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "3 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      }
+     ]
+    }
+   ],
+   "distanceMeters": 72598,
+   "duration": "4283s",
+   "staticDuration": "4283s",
+   "travelAdvisory": {
+    "transitFare": {}
+   },
+   "localizedValues": {
+    "distance": {
+     "text": "72.6 km"
+    },
+    "duration": {
+     "text": "1 hour 11 mins"
+    },
+    "staticDuration": {
+     "text": "1 hour 11 mins"
+    },
+    "transitFare": {}
+   },
+   "routeLabels": [
+    "DEFAULT_ROUTE"
+   ]
+  },
+  {
+   "legs": [
+    {
+     "distanceMeters": 75109,
+     "duration": "5723s",
+     "steps": [
+      {
+       "distanceMeters": 20,
+       "staticDuration": "14s",
+       "navigationInstruction": {
+        "maneuver": "DEPART",
+        "instructions": "Head southwest on Kaiserpl. toward Kaiserstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "20 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 43,
+       "staticDuration": "34s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right onto Maximilianstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "43 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 11,
+       "staticDuration": "10s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "11 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 106,
+       "staticDuration": "81s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "0.1 km"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 2,
+       "staticDuration": "2s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "2 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 34738,
+       "staticDuration": "1740s",
+       "navigationInstruction": {
+        "instructions": "Train towards Dinslaken Bahnhof"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "34.7 km"
+        },
+        "staticDuration": {
+         "text": "29 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Köln Messe/​Deutz",
+          "location": {
+           "latLng": {
+            "latitude": 50.94066,
+            "longitude": 6.97583
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T07:33:00Z",
+         "departureStop": {
+          "name": "Bonn Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.731939999999994,
+            "longitude": 7.09734
+           }
+          }
+         },
+         "departureTime": "2026-11-04T07:04:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "8:33 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "8:04 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Dinslaken Bahnhof",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "National Express",
+           "phoneNumber": "+49 221 13999444",
+           "uri": "https://nationalexpress.de/"
+          }
+         ],
+         "name": "Re 5",
+         "color": "#f25f17",
+         "nameShort": "RE5",
+         "textColor": "#ffffff",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 4
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 4,
+       "staticDuration": "4s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "4 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 75,
+       "staticDuration": "106s",
+       "navigationInstruction": {
+        "instructions": "Take entrance Ottoplatz"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "75 m"
+        },
+        "staticDuration": {
+         "text": "2 mins"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 40040,
+       "staticDuration": "2460s",
+       "navigationInstruction": {
+        "instructions": "Train towards Düren"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "40.0 km"
+        },
+        "staticDuration": {
+         "text": "41 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Düren",
+          "location": {
+           "latLng": {
+            "latitude": 50.80952,
+            "longitude": 6.48245
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T08:36:00Z",
+         "departureStop": {
+          "name": "Köln Messe/​Deutz",
+          "location": {
+           "latLng": {
+            "latitude": 50.940874,
+            "longitude": 6.975001000000001
+           }
+          }
+         },
+         "departureTime": "2026-11-04T07:55:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "9:36 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "8:55 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Düren",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "DB Regio AG NRW",
+           "uri": "http://www.dbregio.de/db_regio/view/index.shtml"
+          }
+         ],
+         "nameShort": "S19",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 12
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 67,
+       "staticDuration": "62s",
+       "navigationInstruction": {
+        "instructions": "Take exit Düren, Bahnhof"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "67 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 3,
+       "staticDuration": "0s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "3 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      }
+     ]
+    }
+   ],
+   "distanceMeters": 75109,
+   "duration": "5723s",
+   "staticDuration": "5723s",
+   "travelAdvisory": {
+    "transitFare": {}
+   },
+   "localizedValues": {
+    "distance": {
+     "text": "75.1 km"
+    },
+    "duration": {
+     "text": "1 hour 35 mins"
+    },
+    "staticDuration": {
+     "text": "1 hour 35 mins"
+    },
+    "transitFare": {}
+   },
+   "routeLabels": [
+    "DEFAULT_ROUTE_ALTERNATE"
+   ]
+  },
+  {
+   "legs": [
+    {
+     "distanceMeters": 72650,
+     "duration": "3623s",
+     "steps": [
+      {
+       "distanceMeters": 20,
+       "staticDuration": "14s",
+       "navigationInstruction": {
+        "maneuver": "DEPART",
+        "instructions": "Head southwest on Kaiserpl. toward Kaiserstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "20 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 43,
+       "staticDuration": "34s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right onto Maximilianstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "43 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 11,
+       "staticDuration": "10s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left toward Maximilianpassage"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "11 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 106,
+       "staticDuration": "81s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right toward Maximilianpassage"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "0.1 km"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 14,
+       "staticDuration": "11s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "14 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 81,
+       "staticDuration": "113s",
+       "navigationInstruction": {
+        "instructions": "Take entrance A4"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "81 m"
+        },
+        "staticDuration": {
+         "text": "2 mins"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 33464,
+       "staticDuration": "1320s",
+       "navigationInstruction": {
+        "instructions": "Train towards Dresden Hbf"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "33.5 km"
+        },
+        "staticDuration": {
+         "text": "22 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Köln Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.94303,
+            "longitude": 6.958729
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T08:06:00Z",
+         "departureStop": {
+          "name": "Bonn Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.7319362,
+            "longitude": 7.097696699999999
+           }
+          }
+         },
+         "departureTime": "2026-11-04T07:44:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "9:06 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "8:44 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Dresden Hbf",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "DB Fernverkehr AG",
+           "uri": "https://www.bahn.de/"
+          }
+         ],
+         "color": "#f01414",
+         "nameShort": "IC 2441",
+         "textColor": "#ffffff",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 1
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "staticDuration": "87s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "1 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 87,
+       "staticDuration": "44s",
+       "navigationInstruction": {
+        "instructions": "Take exit Dom"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "87 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 11,
+       "staticDuration": "10s",
+       "navigationInstruction": {
+        "maneuver": "DEPART",
+        "instructions": "Head southwest toward Bahnhofsvorpl."
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "11 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 38813,
+       "staticDuration": "1500s",
+       "navigationInstruction": {
+        "instructions": "Train towards Aachen, Hbf"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "38.8 km"
+        },
+        "staticDuration": {
+         "text": "25 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Düren",
+          "location": {
+           "latLng": {
+            "latitude": 50.80952,
+            "longitude": 6.48245
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T08:40:00Z",
+         "departureStop": {
+          "name": "Köln Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.94303,
+            "longitude": 6.95873
+           }
+          }
+         },
+         "departureTime": "2026-11-04T08:15:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "9:40 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "9:15 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Aachen, Hbf",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "National Express",
+           "phoneNumber": "+49 221 13999444",
+           "uri": "https://nationalexpress.de/"
+          }
+         ],
+         "name": "Re 1 (Rrx)",
+         "color": "#c00000",
+         "nameShort": "RE1",
+         "textColor": "#ffffff",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 3
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "staticDuration": "0s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "1 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      }
+     ]
+    }
+   ],
+   "distanceMeters": 72650,
+   "duration": "3623s",
+   "staticDuration": "3623s",
+   "travelAdvisory": {
+    "transitFare": {}
+   },
+   "localizedValues": {
+    "distance": {
+     "text": "72.6 km"
+    },
+    "duration": {
+     "text": "1 hour 0 mins"
+    },
+    "staticDuration": {
+     "text": "1 hour 0 mins"
+    },
+    "transitFare": {}
+   },
+   "routeLabels": [
+    "DEFAULT_ROUTE_ALTERNATE"
+   ]
+  },
+  {
+   "legs": [
+    {
+     "distanceMeters": 79561,
+     "duration": "6152s",
+     "steps": [
+      {
+       "distanceMeters": 20,
+       "staticDuration": "14s",
+       "navigationInstruction": {
+        "maneuver": "DEPART",
+        "instructions": "Head southwest on Kaiserpl. toward Kaiserstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "20 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 43,
+       "staticDuration": "34s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right onto Maximilianstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "43 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 11,
+       "staticDuration": "10s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "11 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 106,
+       "staticDuration": "81s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "0.1 km"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 14,
+       "staticDuration": "11s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left\nDestination will be on the right"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "14 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 25213,
+       "staticDuration": "2220s",
+       "navigationInstruction": {
+        "instructions": "Bus towards Köln/Bonn Flughafen Terminal 1"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "25.2 km"
+        },
+        "staticDuration": {
+         "text": "37 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Köln/Bonn Flughafen Terminal 1",
+          "location": {
+           "latLng": {
+            "latitude": 50.8784649,
+            "longitude": 7.1196516999999995
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T07:54:00Z",
+         "departureStop": {
+          "name": "Bonn Hauptbahnhof (ZOB) (Bussteig F2)",
+          "location": {
+           "latLng": {
+            "latitude": 50.73216,
+            "longitude": 7.0986899999999995
+           }
+          }
+         },
+         "departureTime": "2026-11-04T07:17:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "8:54 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "8:17 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Köln/Bonn Flughafen Terminal 1",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "SWB Bus und Bahn",
+           "phoneNumber": "+49 228 7111",
+           "uri": "http://www.swb-busundbahn.de/"
+          }
+         ],
+         "color": "#74954b",
+         "nameShort": "SB60",
+         "textColor": "#ffffff",
+         "vehicle": {
+          "name": {
+           "text": "Bus"
+          },
+          "type": "BUS",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/bus2.png"
+         }
+        },
+        "stopCount": 2
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 56,
+       "staticDuration": "56s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "56 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 54028,
+       "staticDuration": "3180s",
+       "navigationInstruction": {
+        "instructions": "Train towards Düren"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "54.0 km"
+        },
+        "staticDuration": {
+         "text": "53 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Düren",
+          "location": {
+           "latLng": {
+            "latitude": 50.80952,
+            "longitude": 6.48245
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T08:56:00Z",
+         "departureStop": {
+          "name": "Köln/​Bonn Flughafen",
+          "location": {
+           "latLng": {
+            "latitude": 50.878901,
+            "longitude": 7.119301999999999
+           }
+          }
+         },
+         "departureTime": "2026-11-04T08:03:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "9:56 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "9:03 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Düren",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "DB Regio AG NRW",
+           "uri": "http://www.dbregio.de/db_regio/view/index.shtml"
+          }
+         ],
+         "nameShort": "S19",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 15
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 67,
+       "staticDuration": "62s",
+       "navigationInstruction": {
+        "instructions": "Take exit Düren, Bahnhof"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "67 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 3,
+       "staticDuration": "0s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "3 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      }
+     ]
+    }
+   ],
+   "distanceMeters": 79561,
+   "duration": "6154s",
+   "staticDuration": "6154s",
+   "travelAdvisory": {
+    "transitFare": {}
+   },
+   "localizedValues": {
+    "distance": {
+     "text": "79.6 km"
+    },
+    "duration": {
+     "text": "1 hour 43 mins"
+    },
+    "staticDuration": {
+     "text": "1 hour 43 mins"
+    },
+    "transitFare": {}
+   },
+   "routeLabels": [
+    "DEFAULT_ROUTE_ALTERNATE"
+   ]
+  },
+  {
+   "legs": [
+    {
+     "distanceMeters": 72598,
+     "duration": "4283s",
+     "steps": [
+      {
+       "distanceMeters": 20,
+       "staticDuration": "14s",
+       "navigationInstruction": {
+        "maneuver": "DEPART",
+        "instructions": "Head southwest on Kaiserpl. toward Kaiserstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "20 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 43,
+       "staticDuration": "34s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right onto Maximilianstraße"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "43 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 11,
+       "staticDuration": "10s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "11 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 106,
+       "staticDuration": "81s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "0.1 km"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 2,
+       "staticDuration": "2s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "2 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 33436,
+       "staticDuration": "1440s",
+       "navigationInstruction": {
+        "instructions": "Train towards Dinslaken Bahnhof"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "33.4 km"
+        },
+        "staticDuration": {
+         "text": "24 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Köln Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.94303,
+            "longitude": 6.95873
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T08:28:00Z",
+         "departureStop": {
+          "name": "Bonn Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.731939999999994,
+            "longitude": 7.09734
+           }
+          }
+         },
+         "departureTime": "2026-11-04T08:04:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "9:28 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "9:04 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Dinslaken Bahnhof",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "National Express",
+           "phoneNumber": "+49 221 13999444",
+           "uri": "https://nationalexpress.de/"
+          }
+         ],
+         "name": "Re 5",
+         "color": "#f25f17",
+         "nameShort": "RE5",
+         "textColor": "#ffffff",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 3
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 2,
+       "staticDuration": "1s",
+       "navigationInstruction": {
+        "maneuver": "DEPART",
+        "instructions": "Head northwest on Bahnhofsvorpl."
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "2 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 10,
+       "staticDuration": "9s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "10 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "staticDuration": "44s",
+       "navigationInstruction": {
+        "instructions": "Take entrance Dom"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "1 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 87,
+       "staticDuration": "89s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "87 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 38811,
+       "staticDuration": "1500s",
+       "navigationInstruction": {
+        "instructions": "Train towards Aachen Hbf"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "38.8 km"
+        },
+        "staticDuration": {
+         "text": "25 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Düren",
+          "location": {
+           "latLng": {
+            "latitude": 50.80952,
+            "longitude": 6.48245
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T09:12:00Z",
+         "departureStop": {
+          "name": "Köln Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.94303,
+            "longitude": 6.958729
+           }
+          }
+         },
+         "departureTime": "2026-11-04T08:47:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "10:12 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "9:47 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Aachen Hbf",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "DB Regio AG NRW",
+           "uri": "http://www.dbregio.de/db_regio/view/index.shtml"
+          }
+         ],
+         "nameShort": "RE9",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 3
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 67,
+       "staticDuration": "62s",
+       "navigationInstruction": {
+        "instructions": "Take exit Düren, Bahnhof"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "67 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 3,
+       "staticDuration": "0s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "3 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      }
+     ]
+    }
+   ],
+   "distanceMeters": 72598,
+   "duration": "4283s",
+   "staticDuration": "4283s",
+   "travelAdvisory": {
+    "transitFare": {}
+   },
+   "localizedValues": {
+    "distance": {
+     "text": "72.6 km"
+    },
+    "duration": {
+     "text": "1 hour 11 mins"
+    },
+    "staticDuration": {
+     "text": "1 hour 11 mins"
+    },
+    "transitFare": {}
+   },
+   "routeLabels": [
+    "DEFAULT_ROUTE_ALTERNATE"
+   ]
+  },
+  {
+   "legs": [
+    {
+     "distanceMeters": 70331,
+     "duration": "6642s",
+     "steps": [
+      {
+       "distanceMeters": 84,
+       "staticDuration": "75s",
+       "navigationInstruction": {
+        "maneuver": "DEPART",
+        "instructions": "Head northeast on Kaiserpl. toward An d. Evangelischen Kirche"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "84 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 20,
+       "staticDuration": "18s",
+       "navigationInstruction": {
+        "maneuver": "NAME_CHANGE",
+        "instructions": "Continue onto Regina-Pacis-Weg"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "20 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 43,
+       "staticDuration": "34s",
+       "navigationInstruction": {
+        "maneuver": "TURN_RIGHT",
+        "instructions": "Turn right"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "43 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 66,
+       "staticDuration": "52s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "66 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 51,
+       "staticDuration": "41s",
+       "navigationInstruction": {
+        "maneuver": "TURN_LEFT",
+        "instructions": "Turn left\nDestination will be on the left"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "51 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 30994,
+       "staticDuration": "3540s",
+       "navigationInstruction": {
+        "instructions": "Subway towards Köln-Niehl"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "31.0 km"
+        },
+        "staticDuration": {
+         "text": "59 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Köln Dom/Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.9417033,
+            "longitude": 6.957102600000001
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T08:49:00Z",
+         "departureStop": {
+          "name": "Bonn Universität/Markt",
+          "location": {
+           "latLng": {
+            "latitude": 50.732749999999996,
+            "longitude": 7.1028400000000005
+           }
+          }
+         },
+         "departureTime": "2026-11-04T07:50:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "9:49 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "8:50 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Köln-Niehl",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "Kölner Verkehrs-Betriebe",
+           "phoneNumber": "+49 221 5470",
+           "uri": "http://www.kvb-koeln.de/"
+          }
+         ],
+         "color": "#06ada5",
+         "nameShort": "16",
+         "textColor": "#ffffff",
+         "vehicle": {
+          "name": {
+           "text": "Subway"
+          },
+          "type": "SUBWAY",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/subway2.png"
+         }
+        },
+        "stopCount": 30
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 41,
+       "staticDuration": "42s",
+       "navigationInstruction": {
+        "instructions": "Take exit Domplatte, Bahnhofsvorplatz"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "41 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 62,
+       "staticDuration": "62s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "62 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "staticDuration": "44s",
+       "navigationInstruction": {
+        "instructions": "Take entrance Dom"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "1 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 87,
+       "staticDuration": "89s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "87 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 38813,
+       "staticDuration": "2280s",
+       "navigationInstruction": {
+        "instructions": "Train towards Düren"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "38.8 km"
+        },
+        "staticDuration": {
+         "text": "38 mins"
+        }
+       },
+       "transitDetails": {
+        "stopDetails": {
+         "arrivalStop": {
+          "name": "Düren",
+          "location": {
+           "latLng": {
+            "latitude": 50.80952,
+            "longitude": 6.48245
+           }
+          }
+         },
+         "arrivalTime": "2026-11-04T09:36:00Z",
+         "departureStop": {
+          "name": "Köln Hauptbahnhof",
+          "location": {
+           "latLng": {
+            "latitude": 50.94303,
+            "longitude": 6.958729
+           }
+          }
+         },
+         "departureTime": "2026-11-04T08:58:00Z"
+        },
+        "localizedValues": {
+         "arrivalTime": {
+          "time": {
+           "text": "10:36 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         },
+         "departureTime": {
+          "time": {
+           "text": "9:58 AM"
+          },
+          "timeZone": "Europe/Berlin"
+         }
+        },
+        "headsign": "Düren",
+        "transitLine": {
+         "agencies": [
+          {
+           "name": "DB Regio AG NRW",
+           "uri": "http://www.dbregio.de/db_regio/view/index.shtml"
+          }
+         ],
+         "nameShort": "S19",
+         "vehicle": {
+          "name": {
+           "text": "Train"
+          },
+          "type": "HEAVY_RAIL",
+          "iconUri": "//maps.gstatic.com/mapfiles/transit/iw2/6/rail2.png"
+         }
+        },
+        "stopCount": 11
+       },
+       "travelMode": "TRANSIT"
+      },
+      {
+       "distanceMeters": 67,
+       "staticDuration": "62s",
+       "navigationInstruction": {
+        "instructions": "Take exit Düren, Bahnhof"
+       },
+       "localizedValues": {
+        "distance": {
+         "text": "67 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      },
+      {
+       "distanceMeters": 3,
+       "staticDuration": "0s",
+       "navigationInstruction": {},
+       "localizedValues": {
+        "distance": {
+         "text": "3 m"
+        },
+        "staticDuration": {
+         "text": "1 min"
+        }
+       },
+       "travelMode": "WALK"
+      }
+     ]
+    }
+   ],
+   "distanceMeters": 70331,
+   "duration": "6642s",
+   "staticDuration": "6642s",
+   "travelAdvisory": {
+    "transitFare": {}
+   },
+   "localizedValues": {
+    "distance": {
+     "text": "70.3 km"
+    },
+    "duration": {
+     "text": "1 hour 51 mins"
+    },
+    "staticDuration": {
+     "text": "1 hour 51 mins"
+    },
+    "transitFare": {}
+   },
+   "routeLabels": [
+    "DEFAULT_ROUTE_ALTERNATE"
+   ]
+  }
+ ]
+}

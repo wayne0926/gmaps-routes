@@ -1,131 +1,142 @@
 """MCP server (stdio).  Run:  python -m gmaps_routes.mcp_server
 
-Needs GOOGLE_MAPS_API_KEY in the environment.  Works with mcp 2.x (MCPServer) and 1.x (FastMCP).
+Needs GOOGLE_MAPS_API_KEY.  Optional: GMAPS_TZ (default Europe/Berlin), GMAPS_LANG (default en).
+Tools return compact text by default (cheap on context); format="json" gives normalised JSON.
+Works with mcp 2.x (MCPServer) and 1.x (FastMCP).
 """
 from __future__ import annotations
 
+import json
 from typing import Any
 
 try:  # mcp >= 2
     from mcp.server.mcpserver import MCPServer as _Server
+    from mcp.server.mcpserver.exceptions import ToolError
 except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as _Server
+    from mcp.server.fastmcp.exceptions import ToolError
+from mcp.types import ToolAnnotations
 
 from . import client as C
-from .summary import decode_polyline as _decode
 
 mcp = _Server(
     "gmaps-routes",
     instructions=(
-        "Google Maps routing. Prefer compute_route for A->B (transit, bicycle, walk, drive, "
-        "two-wheeler; alternatives, waypoints, departure/arrival time), compare_modes to pick a "
-        "mode, compute_route_matrix for many-to-many travel times. Times: ISO-8601 (naive = "
-        "GMAPS_TZ, default Europe/Berlin) or '+30m'. Waypoints: address, 'lat,lng', "
-        "'place_id:...', or prefix 'via:'."))
+        "Google Maps routing for planning trips (public transit and bicycle first). "
+        "compute_route: A->B with alternatives; transit results give leave/arrive times, lines, "
+        "stops, transfers, transfer waits and walking. compare_modes: one call for transit vs "
+        "bike vs walk vs drive, ranked by arrival (or latest departure for arrive-by). "
+        "compute_route_matrix: many origins x destinations. search_places: find a place near "
+        "lat,lng; pass its 'place_id:...' as a waypoint. Times: ISO-8601 (naive = local time "
+        f"{C.default_tz()}), 'HH:MM', '+30m', or omit for now. arrival_time ('arrive by') "
+        "works for TRANSIT; compare_modes back-computes it for the other modes. Times in the "
+        "output are local. TRANSIT cannot take intermediate stops: route each leg."))
 
 
-def _wrap(fn, *a, **k) -> dict:
+# Plain text only: structured output would send every result twice. All tools only read.
+_TOOL = dict(structured_output=False,
+             annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+
+
+def _out(fn, *a, **k) -> str:
     try:
-        return fn(*a, **k)
+        r = fn(*a, **k)
     except (C.GoogleMapsError, ValueError) as e:
-        # surfaced as a tool error with Google's own message (key is scrubbed)
-        raise RuntimeError(str(e)) from None
+        # ToolError keeps the message visible to the model (other exceptions are masked)
+        raise ToolError(str(e)) from None
+    return r if isinstance(r, str) else json.dumps(r, ensure_ascii=False, separators=(",", ":"))
 
 
-@mcp.tool()
+@mcp.tool(**_TOOL)
 def compute_route(
     origin: str, destination: str, travel_mode: str = "TRANSIT",
-    intermediates: list[str] | None = None,
     departure_time: str | None = None, arrival_time: str | None = None,
-    alternatives: bool = True,
+    intermediates: list[str] | None = None, optimize_waypoint_order: bool = False,
+    alternatives: bool = True, max_routes: int | None = None, steps: bool = False,
     transit_modes: list[str] | None = None, transit_routing: str | None = None,
-    routing_preference: str | None = None, traffic_model: str | None = None,
-    avoid: list[str] | None = None, units: str = "METRIC",
+    avoid: list[str] | None = None, routing_preference: str | None = None,
     language: str | None = None, region: str | None = None,
-    optimize_waypoint_order: bool = False, polyline_quality: str = "HIGH_QUALITY",
-    geojson: bool = False, extra_computations: list[str] | None = None,
-    reference_routes: list[str] | None = None, extra_request: dict[str, Any] | None = None,
-    fields: str | None = None, output: str = "both", dry_run: bool = False,
-) -> dict:
-    """Routes API computeRoutes. travel_mode: TRANSIT|BICYCLE|WALK|DRIVE|TWO_WHEELER.
-    transit_modes: BUS SUBWAY TRAIN LIGHT_RAIL RAIL; transit_routing: LESS_WALKING|FEWER_TRANSFERS.
-    avoid: tolls highways ferries indoor tunnels. arrival_time only for TRANSIT.
-    output: both (readable summary + full raw API JSON) | summary | raw.
-    extra_request is deep-merged into the request body for any option not exposed here."""
-    return _wrap(C.compute_routes, origin, destination, intermediates=intermediates,
-                 travel_mode=travel_mode, departure_time=departure_time, arrival_time=arrival_time,
-                 alternatives=alternatives, transit_modes=transit_modes,
-                 transit_routing=transit_routing, routing_preference=routing_preference,
-                 traffic_model=traffic_model, avoid=avoid, units=units, language=language,
-                 region=region, optimize_waypoint_order=optimize_waypoint_order,
-                 polyline_quality=polyline_quality, geojson=geojson,
-                 extra_computations=extra_computations, reference_routes=reference_routes,
-                 extra_request=extra_request, fields=fields, output=output, dry_run=dry_run)
+    extra_request: dict[str, Any] | None = None, format: str = "text",
+) -> str:
+    """Route between two places. travel_mode: TRANSIT | BICYCLE | WALK | DRIVE | TWO_WHEELER.
+    Places: address/name, 'lat,lng', or 'place_id:...'; intermediates may be prefixed 'via:'
+    (pass through without stopping); not for TRANSIT.
+    transit_modes: BUS SUBWAY TRAIN LIGHT_RAIL RAIL; transit_routing: LESS_WALKING | FEWER_TRANSFERS.
+    steps=true adds turn-by-turn instructions (bike/walk/drive). avoid: tolls highways ferries indoor.
+    routing_preference (DRIVE/TWO_WHEELER): TRAFFIC_UNAWARE | TRAFFIC_AWARE (default) | TRAFFIC_AWARE_OPTIMAL.
+    format: text | json | raw (full API response, large). extra_request is merged into the API body."""
+    return _out(C.compute_routes, origin, destination, intermediates=intermediates,
+                travel_mode=travel_mode, departure_time=departure_time,
+                arrival_time=arrival_time, alternatives=alternatives, max_routes=max_routes,
+                detail="steps" if steps else "brief", format=format,
+                optimize_waypoint_order=optimize_waypoint_order, transit_modes=transit_modes,
+                transit_routing=transit_routing, avoid=avoid,
+                routing_preference=routing_preference, language=language, region=region,
+                extra_request=extra_request)
 
 
-@mcp.tool()
+@mcp.tool(**_TOOL)
 def compare_modes(
     origin: str, destination: str, modes: list[str] | None = None,
     departure_time: str | None = None, arrival_time: str | None = None,
-    language: str | None = None, region: str | None = None, units: str = "METRIC",
-    output: str = "summary",
-) -> dict:
-    """Same trip across several modes (default TRANSIT, BICYCLE, WALK, DRIVE); returns the best
-    route per mode and a fastest-first ranking."""
-    return _wrap(C.compare_modes, origin, destination, modes=tuple(modes or C.TRAVEL_MODES[:4]),
-                 departure_time=departure_time, arrival_time=arrival_time, language=language,
-                 region=region, units=units, output=output)
+    transit_modes: list[str] | None = None, transit_routing: str | None = None,
+    language: str | None = None, format: str = "text",
+) -> str:
+    """Same trip in several modes at once (default TRANSIT, BICYCLE, WALK, DRIVE), best route
+    each, ranked by earliest arrival, or by latest departure when arrival_time is given."""
+    return _out(C.compare_modes, origin, destination,
+                modes=tuple(modes or ("TRANSIT", "BICYCLE", "WALK", "DRIVE")),
+                departure_time=departure_time, arrival_time=arrival_time,
+                transit_modes=transit_modes, transit_routing=transit_routing,
+                language=language, format=format)
 
 
-@mcp.tool()
+@mcp.tool(**_TOOL)
 def compute_route_matrix(
     origins: list[str], destinations: list[str], travel_mode: str = "TRANSIT",
     departure_time: str | None = None, arrival_time: str | None = None,
     transit_modes: list[str] | None = None, transit_routing: str | None = None,
-    routing_preference: str | None = None, traffic_model: str | None = None,
-    avoid: list[str] | None = None, units: str = "METRIC", language: str | None = None,
-    region: str | None = None, extra_computations: list[str] | None = None,
-    extra_request: dict[str, Any] | None = None, fields: str | None = None,
-    output: str = "both", dry_run: bool = False,
-) -> dict:
-    """Routes API computeRouteMatrix (origins x destinations). Limits: 625 elements, 100 for
-    TRANSIT or TRAFFIC_AWARE_OPTIMAL; 50 combined origins+destinations when given as addresses."""
-    return _wrap(C.compute_route_matrix, origins, destinations, travel_mode=travel_mode,
-                 departure_time=departure_time, arrival_time=arrival_time,
-                 transit_modes=transit_modes, transit_routing=transit_routing,
-                 routing_preference=routing_preference, traffic_model=traffic_model, avoid=avoid,
-                 units=units, language=language, region=region,
-                 extra_computations=extra_computations, extra_request=extra_request,
-                 fields=fields, output=output, dry_run=dry_run)
+    avoid: list[str] | None = None, routing_preference: str | None = None,
+    language: str | None = None, format: str = "text",
+) -> str:
+    """Travel time and distance for every origin x destination pair. Limits: 100 elements
+    for TRANSIT, 625 otherwise; at most 50 origins+destinations given as address/place_id.
+    TRANSIT durations exclude the initial wait."""
+    return _out(C.compute_route_matrix, origins, destinations, travel_mode=travel_mode,
+                departure_time=departure_time, arrival_time=arrival_time,
+                transit_modes=transit_modes, transit_routing=transit_routing, avoid=avoid,
+                routing_preference=routing_preference, language=language, format=format)
 
 
-@mcp.tool()
+@mcp.tool(**_TOOL)
+def search_places(
+    text: str, near: str | None = None, radius_m: float = 3000, max_results: int = 8,
+    included_type: str | None = None, open_now: bool | None = None,
+    min_rating: float | None = None, rank_by: str | None = None, detailed: bool = False,
+    language: str | None = None, format: str = "text",
+) -> str:
+    """Find places by text ('Bäckerei', 'Uni Bonn Hörsaalzentrum'). near='lat,lng' biases
+    to that area and adds distance; rank_by: RELEVANCE | DISTANCE. detailed/open_now/min_rating
+    add rating, opening hours, phone, website (pricier Enterprise SKU). Use the returned
+    place_id as 'place_id:...' in routing tools."""
+    return _out(C.search_places, text, near=near, radius_m=radius_m, max_results=max_results,
+                included_type=included_type, open_now=open_now, min_rating=min_rating,
+                rank_by=rank_by, detailed=detailed, language=language, format=format)
+
+
+@mcp.tool(**_TOOL)
 def geocode(query: str | None = None, latlng: str | None = None, place_id: str | None = None,
             language: str | None = None, region: str | None = None,
-            components: str | None = None) -> dict:
-    """Geocoding API: give exactly one of query (address), latlng ('lat,lng' reverse), place_id."""
-    return _wrap(C.geocode, query, latlng=latlng, place_id=place_id, language=language,
-                 region=region, components=components)
+            format: str = "text") -> str:
+    """Address -> coordinates (query), coordinates -> address (latlng='lat,lng'), or
+    place_id -> address. Routing tools accept addresses directly; use this to check one."""
+    return _out(C.geocode, query, latlng=latlng, place_id=place_id, language=language,
+                region=region, format=format)
 
 
-@mcp.tool()
-def search_places(text: str, near: str | None = None, radius_m: float = 5000,
-                  max_results: int = 10, included_type: str | None = None,
-                  open_now: bool | None = None, min_rating: float | None = None,
-                  language: str | None = None, region: str | None = None,
-                  detailed: bool = False) -> dict:
-    """Places API (New) Text Search. near='lat,lng' biases results. detailed adds rating, opening
-    hours, phone, website (higher-priced SKU)."""
-    return _wrap(C.search_places, text, near=near, radius_m=radius_m, max_results=max_results,
-                 included_type=included_type, open_now=open_now, min_rating=min_rating,
-                 language=language, region=region, detailed=detailed)
-
-
-@mcp.tool()
-def decode_polyline(polyline: str) -> list[list[float]]:
-    """Decode an encoded polyline (from a route's polyline.encodedPolyline) to [[lat, lng], ...]."""
-    return _decode(polyline)
+def main() -> None:
+    mcp.run()
 
 
 if __name__ == "__main__":
-    mcp.run()
+    main()
