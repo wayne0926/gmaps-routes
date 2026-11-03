@@ -67,7 +67,9 @@ def compute_route(
     """Route between two places. travel_mode: TRANSIT | BICYCLE | WALK | DRIVE | TWO_WHEELER.
     Places: address/name, 'lat,lng', or 'place_id:...'; intermediates may be prefixed 'via:'
     (pass through without stopping); not for TRANSIT.
-    transit_modes: BUS SUBWAY TRAIN LIGHT_RAIL RAIL; transit_routing: LESS_WALKING | FEWER_TRANSFERS.
+    transit_modes: BUS SUBWAY TRAIN LIGHT_RAIL RAIL (RAIL = TRAIN+SUBWAY+LIGHT_RAIL; trains
+    only = TRAIN); transit_routing: LESS_WALKING | FEWER_TRANSFERS. 'SEV-Bus' legs are rail
+    replacement buses.
     steps=true adds turn-by-turn instructions (bike/walk/drive). avoid: tolls highways ferries indoor.
     routing_preference (DRIVE/TWO_WHEELER): TRAFFIC_UNAWARE | TRAFFIC_AWARE (default) | TRAFFIC_AWARE_OPTIMAL.
     format: text | json | raw (full API response, large). extra_request is merged into the API body."""

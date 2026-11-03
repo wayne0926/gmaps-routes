@@ -271,3 +271,15 @@ def test_final_leg_bogus_prediction_is_repaired_not_dropped():
     it = L._parse_itineraries(raw)[0]
     assert "suspect_realtime" not in it and it["legs"][1]["rt_ignored"]
     assert it["_end"] == datetime(2026, 11, 3, 12, 42, tzinfo=timezone.utc) and it["duration_s"] == 29 * 60
+
+
+def test_rail_replacement_bus_is_labelled():
+    step = {"travelMode": "TRANSIT", "staticDuration": "4440s", "distanceMeters": 30000,
+            "transitDetails": {"stopDetails": {"departureStop": {"name": "Bonn Colmantstr./Hbf"},
+                                               "arrivalStop": {"name": "Köln Hauptbahnhof"}},
+                               "transitLine": {"nameShort": "RB26", "name": "SEV RB 26",
+                                               "vehicle": {"type": "BUS"}}}}
+    seg = S._transit_segment(step, TZ)
+    assert seg["replacement_bus"] and "SEV-Bus RB26" in R.line_label(seg)
+    rail = dict(step, transitDetails=dict(step["transitDetails"], transitLine={"nameShort": "RB26", "name": "RB 26", "vehicle": {"type": "HEAVY_RAIL"}}))
+    assert "replacement_bus" not in S._transit_segment(rail, TZ)

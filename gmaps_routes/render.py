@@ -45,10 +45,17 @@ def _when(q: dict, home: str) -> str:
 
 
 def line_label(s: dict) -> str:
-    """'RE5', 'IC 2049', 'S19' are self-explanatory; bare numbers ('16', '602') get the vehicle."""
+    """'RE5', 'IC 2049', 'S19' are self-explanatory; bare numbers ('16', '602') get the vehicle.
+    Rail replacement buses are spelled out: Google names them 'SEV RB 26' but its short name
+    is just 'RB26', which reads like the train."""
     veh = VEH.get(s.get("vehicle", ""), (s.get("vehicle_name") or "").strip() or "Transit")
     line = s.get("line") or ""
-    return line if line and not line[0].isdigit() else f"{veh} {line}".strip()
+    if s.get("replacement_bus"):
+        return f"SEV-Bus {line} (rail replacement bus)"
+    label = line if line and not line[0].isdigit() else f"{veh} {line}".strip()
+    if s.get("trip") and s["trip"] not in label:
+        label += f" ({s['trip']})"
+    return label
 
 
 def _seg(s: dict, tz: str, ref: datetime | None, base: str) -> str:

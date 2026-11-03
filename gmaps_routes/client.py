@@ -110,7 +110,9 @@ def default_tz() -> str:
 
 
 def default_lang() -> str | None:
-    v = os.environ.get("GMAPS_LANG", "en")
+    """Default: no languageCode -> Google uses the local language, so stops are named as on
+    the signs and in DB apps ('Duisburg Hbf', not 'Duisburg Central Station')."""
+    v = os.environ.get("GMAPS_LANG", "")
     return v or None
 
 
@@ -429,6 +431,9 @@ def build_route_request(origin, destination, *, intermediates=None, travel_mode=
         tp = _transit_prefs(transit_modes, transit_routing)
         if tp:
             body["transitPreferences"] = tp
+        if transit_modes and "RAIL" in [m.upper() for m in transit_modes]:
+            notes.append("RAIL = TRAIN + SUBWAY + LIGHT_RAIL (Stadtbahn/U-Bahn included); "
+                         "use TRAIN for mainline trains only")
     elif transit_modes or transit_routing:
         notes.append(f"transit preferences ignored for {mode}")
 
@@ -692,6 +697,38 @@ def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRAN
                                 with_steps=detail == "steps",
                                 transit_modes=opts.get("transit_modes"), otz=otz, dtz=dtz)
     notes += more
+    if mode == "TRANSIT" and arr and routes and not dry_run:
+        # Google's arrive-by search often returns only much earlier trips (it found nothing
+        # between 01:30 and a 06:45 deadline although trains exist): if the best option
+        # arrives > 45 min early, also search forward from (deadline - trip time) and merge.
+        best_arr = max((r["arrive"] for r in routes if r.get("arrive")), default=None)
+        if best_arr and arr - best_arr > timedelta(minutes=45):
+            dur = min(r["duration_s"] for r in routes if r.get("duration_s"))
+            start = arr - timedelta(seconds=dur) - timedelta(minutes=20)
+            try:
+                b2, _ = build_route_request(
+                    origin, destination, intermediates=intermediates, travel_mode=travel_mode,
+                    departure_time=start, alternatives=True,
+                    **{k: v for k, v in opts.items() if k not in ("departure_time",)})
+                raw2, _ = _send_route(b2, mask)
+                extra, _ = _postprocess(raw2, mode, tz=tz, now=now, dep=start, arr=None,
+                                        with_steps=detail == "steps",
+                                        transit_modes=opts.get("transit_modes"), otz=otz, dtz=dtz)
+                seen = {(r.get("leave"), r.get("arrive")) for r in routes}
+                fit = [r for r in extra if r.get("arrive") and r["arrive"] <= arr
+                       and (r.get("leave"), r.get("arrive")) not in seen]
+                for r in fit:
+                    r.pop("wait_before_s", None)
+                if fit:
+                    routes = sorted(routes + fit, key=lambda r: -(r.get("leave") or now).timestamp())
+                    notes.append(f"added {len(fit)} later option(s) found by searching forward "
+                                 f"from {S.hhmm(start, otz or tz)} (arrive-by search missed them)")
+                else:
+                    notes.append(f"⚠ best option arrives {S.fmt_duration((arr - best_arr).total_seconds())} "
+                                 "before the deadline and a forward search found nothing later; "
+                                 "the timetable may lack trains (construction?)")
+            except (GoogleMapsError, ValueError):
+                pass
     if (arr or dep) and (arr or dep) < now - timedelta(minutes=10):
         notes.append("requested time is in the past")
     if max_routes:
@@ -735,6 +772,21 @@ def _postprocess(raw: dict, mode: str, *, tz: str, now: datetime, dep, arr, with
         routes = uniq
     if routes and not otz:
         notes.append(f"origin time zone unknown (Time Zone API unavailable); clock times are {tz}")
+    if mode == "TRANSIT":
+        def long_walk(r):
+            return any(sg["type"] == "walk" and (sg.get("duration_s") or 0) > 25 * 60
+                       for sg in r.get("segments", []))
+        lw = [r for r in routes if long_walk(r) and not r.get("walk_only")]
+        if lw and len(lw) < len(routes):
+            routes = [r for r in routes if r not in lw]
+            notes.append(f"dropped {len(lw)} option(s) with a walk of more than 25 min")
+        if any(sg.get("replacement_bus") for r in routes for sg in r.get("segments", [])):
+            notes.append("⚠ includes a rail replacement bus (SEV) in Google's timetable: slower "
+                         "than the train; DB may plan differently, verify in DB Navigator or "
+                         "station_board/live_connections close to the date")
+        if (arr or dep or now) > now + timedelta(days=21):
+            notes.append("timetable data from Google only, weeks ahead: not cross-checked with "
+                         "live data; construction/replacement services can change")
     if mode == "TRANSIT":
         # API order is not by arrival; sort so option 1 is the best one
         routes.sort(key=(lambda r: -(r.get("leave") or now).timestamp()) if arr else

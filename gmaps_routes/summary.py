@@ -128,8 +128,13 @@ def _transit_segment(step: dict, tz: str) -> dict:
     line = td.get("transitLine") or {}
     veh = line.get("vehicle") or {}
     tlv = td.get("localizedValues") or {}
+    short, long_ = line.get("nameShort") or "", line.get("name") or ""
+    rail_name = re.match(r"^(S|RB|RE|IC|ICE|EC|IRE|MEX|RS|FEX|TER|IR)\s?\d", short.upper())
+    sev = ("SEV" in long_.upper().split() or "ERSATZ" in long_.upper()
+           or ((veh.get("type") in ("BUS", "INTERCITY_BUS")) and bool(rail_name)))
     return _drop_none({
         "type": "transit",
+        "replacement_bus": True if sev else None,
         "line": line.get("nameShort") or line.get("name"),
         "line_name": line.get("name") if line.get("nameShort") else None,
         "vehicle": veh.get("type"),

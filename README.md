@@ -14,7 +14,8 @@ JSON and `format=raw` gives the untouched API response.
 3. Set the env var `GOOGLE_MAPS_API_KEY`. Never put the key in the repo or in command-line arguments.
 4. Optional:
    - `GMAPS_TZ` (default `Europe/Berlin`) sets how naive times are read and how times are shown.
-   - `GMAPS_LANG` (default `en`) sets the language of Google's own strings.
+   - `GMAPS_LANG` sets the language of Google's own strings. By default it is unset, so Google uses the local language and stops
+     are named as on signs and in DB apps (`Duisburg Hbf`, not `Duisburg Central Station`).
 
 ## MCP (stdio; the client spawns it, nothing listens on a port)
 ```bash
