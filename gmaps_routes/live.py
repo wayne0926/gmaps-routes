@@ -91,6 +91,25 @@ def _area(r: dict) -> str | None:
     return None
 
 
+def _rerank(results: list[dict], score) -> list[dict]:
+    """Keep the geocoder's order (it knows prominence: Frankfurt = am Main) unless another
+    of the top hits scores clearly better (> 0.2), e.g. a rail station for a rail board."""
+    if not results:
+        return results
+    top = results[:10]
+    best = max(top, key=score)
+    if score(best) > score(top[0]) + 0.2:
+        return [best] + [r for r in results if r is not best]
+    return results
+
+
+def _score(query: str, r: dict) -> float:
+    """Match against name + town, so 'Bonn, Kaiserplatz' prefers Bonn's Kaiserplatz over
+    Düren's; a small bonus for real stops over streets/places of the same name."""
+    return match_score(query, f"{r.get('name', '')} {_area(r) or ''}") \
+        + (0.05 if r.get("type") == "STOP" else 0)
+
+
 def find_stop(query: str, near: str | None = None, prefer_rail: bool = False) -> dict:
     """-> {name, id (Transitous stop id), dhid, eva, lat, lon, tz, area, confidence}.
     Accepts a name, a DHID ('de:05314:61101'), an EVA number ('8000044') or 'lat,lng'
@@ -116,12 +135,11 @@ def find_stop(query: str, near: str | None = None, prefer_rail: bool = False) ->
     stops = [r for r in res if r.get("type") == "STOP"] or res
     if not stops:
         raise LiveError(f"no stop found for {q!r}")
-    if not ll:  # rank: name similarity, then rail service (for rail boards), then API order
-        def rank(ir):
-            i, r = ir
+    if not ll:
+        def sc(r):
             rail = bool(set(r.get("modes") or []) & _RAIL)
-            return -(match_score(q, r.get("name", "")) + (0.3 if prefer_rail and rail else 0)), i
-        stops = [r for _, r in sorted(enumerate(stops[:10]), key=rank)] + stops[10:]
+            return _score(q, r) + (0.3 if prefer_rail and rail else 0)
+        stops = _rerank(stops, sc)
     best = stops[0]
     # DB boards need a German DHID; the top hit can be a foreign feed's copy of the station
     # (e.g. Bonn Hbf from SNCB): take the DELFI twin nearby if there is one.
@@ -135,13 +153,38 @@ def find_stop(query: str, near: str | None = None, prefer_rail: bool = False) ->
     out = {"name": best.get("name"), "id": best.get("id"), "dhid": m.group(1) if m else None,
            "lat": best.get("lat"), "lon": best.get("lon"), "tz": best.get("tz"),
            "area": _area(best), "query": q,
-           "confidence": 1.0 if ll else round(match_score(q, best.get("name", "")), 2)}
+           "confidence": 1.0 if ll else round(min(1.0, _score(q, best)), 2),
+           "alternatives": [] if ll else ambiguous_alternatives(q, stops, stops[0])}
     if not out["dhid"] and (best.get("tz") or "").startswith("Europe/Berlin"):
         out["dhid"] = _dhid_via_stoptimes(out["id"])
     if out["dhid"] and not out["id"].startswith("de-DELFI_"):
         out["delfi_id"] = f"de-DELFI_{out['dhid']}"
     _stop_cache[key] = out
     return out
+
+
+def ambiguous_alternatives(query: str, results: list[dict], best: dict) -> list[str]:
+    """Other candidates that match the query as well as `best` but are far away
+    ('Hauptbahnhof' -> Stuttgart, Köln, Berlin ...).  Empty if the choice is clear."""
+    if not best.get("lat"):
+        return []
+    top = _score(query, best)
+    imp = best.get("importance") or 0
+    if not imp:  # towns/addresses carry no prominence score: trust the geocoder's first pick
+        return []
+    alts = []
+    for r in results[:10]:
+        if r is best or not r.get("lat"):
+            continue
+        # comparable name match AND comparable prominence (a street called 'Narvik' in
+        # Magdeburg does not make the town ambiguous; Hamburg vs Köln 'Hauptbahnhof' does)
+        if _score(query, r) >= top - 0.05 \
+                and (r.get("importance") or 0) >= 0.4 * imp and S.haversine_m(
+                (best["lat"], best["lon"]), (r["lat"], r["lon"])) > 30000:
+            label = r.get("name", "?") + (f" ({_area(r)})" if _area(r) and _area(r) not in r.get("name", "") else "")
+            if label not in alts:
+                alts.append(label)
+    return alts[:4]
 
 
 def resolved_note(stop: dict) -> str | None:
@@ -151,11 +194,15 @@ def resolved_note(stop: dict) -> str | None:
     name = stop.get("name") or "?"
     where = f" ({stop['area']})" if stop.get("area") and stop["area"] not in name else ""
     conf = stop.get("confidence", 1.0)
+    if stop.get("alternatives"):
+        return (f"⚠ '{stop['query']}' is ambiguous → picked {name}{where}; also: "
+                f"{'; '.join(stop['alternatives'])}. Add the city.")
     if conf < 0.5:
         return (f"⚠ '{stop['query']}' matched only weakly → {name}{where}; probably not what you "
                 "meant: give the full station name with the city")
-    if _norm(stop["query"]) != _norm(name) or where:
-        return f"'{stop['query']}' → {name}{where}"
+    kind = stop.get("kind")
+    if _norm(stop["query"]) != _norm(name) or where or kind:
+        return f"'{stop['query']}' → {name}{where}{kind or ''}"
     return None
 
 
@@ -219,6 +266,10 @@ def station_board(station: str, *, time: str | None = None, arrivals: bool = Fal
     now = datetime.now(timezone.utc)
     t0 = C.parse_time(time) or now
     stop = find_stop(station, prefer_rail=not all_modes)
+    if stop.get("alternatives"):
+        raise LiveError(f"{station!r} is ambiguous: {stop.get('name')}"
+                        f"{' (' + stop['area'] + ')' if stop.get('area') else ''}, "
+                        f"{', '.join(stop['alternatives'])}... add the city name")
     if stop.get("confidence", 1.0) < 0.35:
         raise LiveError(f"no station matching {station!r} (closest: {stop.get('name')}"
                         f"{', ' + stop['area'] if stop.get('area') else ''}); give the full "
@@ -430,25 +481,32 @@ def _board_text(res: dict) -> str:
 
 
 # --------------------------------------------------------------------------- journeys
-def _place(spec: str) -> tuple[str, str, str | None]:
-    """-> (Transitous place param, label, resolution note).  'lat,lng'/DHID as is; else
+def _place(spec: str, bias: str | None = None) -> tuple:
+    """-> (Transitous place param, label, resolution note, 'lat,lon').  'lat,lng'/DHID as is; else
     geocode (any type), picking the best name match among the top hits."""
     s = str(spec).strip()
     if m := C._LATLNG.match(s):
-        return f"{m.group(1)},{m.group(2)}", s, None
+        return f"{m.group(1)},{m.group(2)}", s, None, f"{m.group(1)},{m.group(2)}"
     if m := _DHID.fullmatch(s):
-        return f"de-DELFI_{m.group(1)}", s, None
-    res = _http("GET", f"{TRANSITOUS}/v1/geocode", params={"text": s})
+        return f"de-DELFI_{m.group(1)}", s, None, None
+    params = {"text": s}
+    if bias:  # e.g. the origin's position when resolving the destination
+        params["place"] = bias
+    res = _http("GET", f"{TRANSITOUS}/v1/geocode", params=params)
     if not res:
         raise LiveError(f"place not found: {s!r}")
-    r = sorted(enumerate(res[:8]), key=lambda ir: (-match_score(s, ir[1].get("name", "")), ir[0]))[0][1]
+    ranked = _rerank(res, lambda r: _score(s, r))
+    r = ranked[0]
     name = r.get("name") or s
-    note = resolved_note({"query": s, "name": name, "area": _area(r),
-                          "confidence": match_score(s, name)})
+    kind = None if r.get("type") == "STOP" else " (a place, not a stop: routed from/to its location)"
+    note = resolved_note({"query": s, "name": name, "area": _area(r), "kind": kind,
+                          "confidence": min(1.0, _score(s, r)),
+                          "alternatives": ambiguous_alternatives(s, ranked, r)})
     label = f"{name} ({_area(r)})" if _area(r) and _area(r) not in name else name
+    pos = f"{r['lat']},{r['lon']}"
     if r.get("type") == "STOP" and r.get("id"):
-        return r["id"], label, note
-    return f"{r['lat']},{r['lon']}", label, note
+        return r["id"], label, note, pos
+    return pos, label, note, pos
 
 
 # Everything but flights (MOTIS mode names); pass modes=[..., "AIRPLANE"] to allow them.
@@ -471,8 +529,8 @@ def live_connections(origin: str, destination: str, *, departure_time: str | Non
     C._check_format(format)
     if departure_time and arrival_time:
         raise ValueError("departure_time and arrival_time are mutually exclusive")
-    o, olab, on = _place(origin)
-    d, dlab, dn = _place(destination)
+    o, olab, on, opos = _place(origin)
+    d, dlab, dn, _ = _place(destination, bias=opos)
     t = C.parse_time(arrival_time or departure_time)
     now0 = datetime.now(timezone.utc)
     tm: list[str] = []
@@ -534,7 +592,8 @@ def live_connections(origin: str, destination: str, *, departure_time: str | Non
         notes.append("requested time is in the past")
     if its:
         gap = ((its[0]["_start"] - ref) if not arrival_time else (ref - its[0]["_end"]))
-        if gap > timedelta(hours=4):
+        limit = max(timedelta(hours=4), timedelta(seconds=0.15 * (its[0]["duration_s"] or 0)))
+        if gap > limit:  # long-distance trips legitimately start hours later
             notes.append(f"⚠ first option is {S.fmt_duration(gap.total_seconds())} "
                          f"{'after' if not arrival_time else 'before'} the requested time: the "
                          "feed may lack trips for that day (e.g. after a timetable change); "

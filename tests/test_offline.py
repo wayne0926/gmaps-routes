@@ -229,3 +229,13 @@ def test_dates_shown_when_day_differs():
     ref = datetime(2026, 11, 3, 10, 0, tzinfo=timezone.utc)
     assert S.hhmm(datetime(2026, 12, 21, 4, 45, tzinfo=timezone.utc), "Europe/Berlin", ref) == "Mon 21.12. 05:45"
     assert S.hhmm(datetime(2026, 11, 3, 11, 0, tzinfo=timezone.utc), "Europe/Berlin", ref) == "12:00"
+
+
+def test_rerank_keeps_geocoder_order_unless_clearly_better():
+    from gmaps_routes import live as L
+    a = {"name": "Frankfurt", "areas": [{"name": "Frankfurt am Main", "default": True}]}
+    b = {"name": "Frankfurt (Oder)"}
+    assert L._rerank([a, b], lambda r: L._score("Frankfurt", r))[0] is a
+    x = {"name": "Düren, Kaiserplatz", "type": "STOP"}
+    y = {"name": "Kaiserplatz", "areas": [{"name": "Bonn", "default": True}]}
+    assert L._rerank([x, y], lambda r: L._score("Bonn, Kaiserplatz", r))[0] is y
