@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from .summary import fmt_distance as D, fmt_duration as T, hhmm, zone
+from .summary import _ALIASES, fmt_distance as D, fmt_duration as T, hhmm, zone
 
 VEH = {"HEAVY_RAIL": "Train", "COMMUTER_TRAIN": "Train", "HIGH_SPEED_TRAIN": "Train",
        "LONG_DISTANCE_TRAIN": "Train", "RAIL": "Train", "METRO_RAIL": "Metro", "SUBWAY": "Subway",
@@ -37,8 +37,9 @@ def _when(q: dict, home: str) -> str:
         return "depart now"
     else:
         t, z, at, w = hhmm(now, otz), otz, now, "depart now ({})"
-    if not _same_offset(at, z, home):  # say whose clock this is
-        t += f" {z} time" if q.get("arrive_by") or q.get("depart_at") else f", {z} time"
+    if not _same_offset(at, z, home):  # say whose clock this is (current name, not 'Europe/Kiev')
+        zn = _ALIASES.get(z, z)
+        t += f" {zn} time" if q.get("arrive_by") or q.get("depart_at") else f", {zn} time"
     return w.format(t)
 
 
