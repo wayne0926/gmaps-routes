@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
-from .summary import fmt_distance as D, fmt_duration as T, hhmm
+from .summary import fmt_distance as D, fmt_duration as T, hhmm, zone
 
 VEH = {"HEAVY_RAIL": "Train", "COMMUTER_TRAIN": "Train", "HIGH_SPEED_TRAIN": "Train",
        "LONG_DISTANCE_TRAIN": "Train", "RAIL": "Train", "METRO_RAIL": "Metro", "SUBWAY": "Subway",
@@ -13,13 +12,34 @@ VEH = {"HEAVY_RAIL": "Train", "COMMUTER_TRAIN": "Train", "HIGH_SPEED_TRAIN": "Tr
        "FERRY": "Ferry", "CABLE_CAR": "Cable car", "GONDOLA_LIFT": "Gondola", "FUNICULAR": "Funicular"}
 
 
-def _when(q: dict, tz: str) -> str:
-    now = q["now"]
+def _same_offset(dt: datetime, a: str, b: str) -> bool:
+    return dt.astimezone(zone(a)).utcoffset() == dt.astimezone(zone(b)).utcoffset()
+
+
+def tt(dt: datetime | None, tz: str, ref: datetime | None, base: str, with_date=False) -> str | None:
+    """Local time at the place it happens; adds the zone abbreviation ('12:54 CET') when that
+    zone's offset differs from `base` (the origin's zone)."""
+    if dt is None:
+        return None
+    s = hhmm(dt, tz, ref, with_date=with_date)
+    if not _same_offset(dt, tz, base):
+        s += " " + dt.astimezone(zone(tz)).strftime("%Z")
+    return s
+
+
+def _when(q: dict, home: str) -> str:
+    now, otz, dtz = q["now"], q.get("tz_o") or home, q.get("tz_d") or q.get("tz_o") or home
     if q.get("arrive_by"):
-        return f"arrive by {hhmm(q['arrive_by'], tz, now, with_date=True)}"
-    if q.get("depart_at"):
-        return f"depart {hhmm(q['depart_at'], tz, now, with_date=True)}"
-    return f"depart now ({hhmm(now, tz)})"
+        t, z, at, w = tt(q["arrive_by"], dtz, now, otz, True), dtz, q["arrive_by"], "arrive by {}"
+    elif q.get("depart_at"):
+        t, z, at, w = hhmm(q["depart_at"], otz, now, with_date=True), otz, q["depart_at"], "depart {}"
+    elif not q.get("tz_known", True):  # no route -> no idea whose clock: don't print one
+        return "depart now"
+    else:
+        t, z, at, w = hhmm(now, otz), otz, now, "depart now ({})"
+    if not _same_offset(at, z, home):  # say whose clock this is
+        t += f" {z} time" if q.get("arrive_by") or q.get("depart_at") else f", {z} time"
+    return w.format(t)
 
 
 def line_label(s: dict) -> str:
@@ -29,7 +49,7 @@ def line_label(s: dict) -> str:
     return line if line and not line[0].isdigit() else f"{veh} {line}".strip()
 
 
-def _seg(s: dict, tz: str, ref: datetime | None) -> str:
+def _seg(s: dict, tz: str, ref: datetime | None, base: str) -> str:
     if s["type"] != "transit":
         verb = {"walk": "walk", "bicycle": "bike"}.get(s["type"], s["type"])
         return f"{verb} {T(s.get('duration_s'))}"
@@ -38,17 +58,19 @@ def _seg(s: dict, tz: str, ref: datetime | None) -> str:
              f"{s['stops']} stop{'s' if s['stops'] != 1 else ''}" if s.get("stops") else None,
              f"every {s['headway_min']} min" if s.get("headway_min") else None]
     extra = ", ".join(x for x in extra if x)
-    tz_s = s.get("_tz", tz)
+    dz, az = s.get("_tz", tz), s.get("_atz", s.get("_tz", tz))
     wait = f"wait {T(s['transfer_wait_s'])} → " if s.get("transfer_wait_s", 0) >= 60 else ""
-    return (f"{wait}{label} {s.get('from')} {hhmm(s.get('_dep'), tz_s, ref)} → {s.get('to')} "
-            f"{hhmm(s.get('_arr'), tz_s, ref)}" + (f" ({extra})" if extra else ""))
+    return (f"{wait}{label} {s.get('from')} {tt(s.get('_dep'), dz, ref, base)} → {s.get('to')} "
+            f"{tt(s.get('_arr'), az, ref, base)}" + (f" ({extra})" if extra else ""))
 
 
 def route_line(r: dict, mode: str, tz: str, ref: datetime | None, live: bool = True) -> str:
     """live: the query is 'depart now', so the wait before leaving is worth showing."""
     bits = []
     if r.get("leave") and r.get("arrive"):
-        bits.append(f"{hhmm(r['leave'], tz, ref)} → {hhmm(r['arrive'], tz, ref)} ({T(r['duration_s'])})")
+        lz, az = r.get("_ltz", tz), r.get("_atz", tz)
+        bits.append(f"{tt(r['leave'], lz, ref, lz)} → {tt(r['arrive'], az, ref, lz)} "
+                    f"({T(r['duration_s'])})")
     else:
         bits.append(T(r.get("duration_s")) or "?")
     if mode != "TRANSIT" or r.get("walk_only"):
@@ -83,7 +105,8 @@ def routes_text(res: dict) -> str:
         lines.append(f"{i}. {route_line(r, mode, tz, ref, live)}")
         if r.get("segments") and not r.get("walk_only"):
             segs = [s for s in r["segments"] if s["type"] == "transit" or s.get("duration_s", 0) >= 30]
-            lines.append("   " + " → ".join(_seg(s, tz, ref) for s in segs))
+            base = r.get("_ltz", tz)
+            lines.append("   " + " → ".join(_seg(s, tz, ref, base) for s in segs))
         if r.get("optimized_order") is not None:
             lines.append(f"   optimized stop order: {r['optimized_order']}")
         for w in r.get("warnings", []):
@@ -114,7 +137,7 @@ def compare_text(res: dict) -> str:
             continue
         best = v.get("best")
         if not best:
-            lines.append(f"{m:8s} no route")
+            lines.append(f"{m:8s} no route" + (" (not offered here)" if m in ("BICYCLE", "TWO_WHEELER") else ""))
             continue
         line = f"{m:8s} {route_line(best, m, tz, ref, live)}"
         if best.get("segments") and not best.get("walk_only"):
@@ -158,7 +181,7 @@ def places_text(res: dict, tz: str = "Europe/Berlin") -> str:
             if p.get(k):
                 lines.append(f"   {k}: {p[k]}")
         if p.get("hours"):  # weekdayDescriptions: Monday first; text shows today only
-            today = p["hours"][datetime.now(ZoneInfo(tz)).weekday() % len(p["hours"])]
+            today = p["hours"][datetime.now(zone(tz)).weekday() % len(p["hours"])]
             lines.append(f"   today: {today.split(': ', 1)[-1]}")
     return "\n".join(lines)
 

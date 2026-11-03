@@ -152,3 +152,25 @@ def test_partial_match_detection():
         "intermediates": [{"intermediateWaypointRequestIndex": 1, "partialMatch": True}]}}
     assert C._partial_waypoints(raw, body) == [("destination", None, "Köln Hbf"),
                                                 ("intermediates", 1, "Brühl")]
+
+
+def test_legacy_zone_names_and_labels():
+    assert S.zone("Europe/Kiev").key in ("Europe/Kiev", "Europe/Kyiv")
+    assert S.zone("Not/AZone").key == "Europe/Berlin"
+    t = datetime(2026, 11, 4, 12, 26, tzinfo=timezone.utc)
+    assert R.tt(t, "Europe/Paris", None, "Europe/London") == "13:26 CET"
+    assert R.tt(t, "Europe/Amsterdam", None, "Europe/Berlin") == "13:26"  # same offset: no label
+
+
+def test_wall_time_detection_and_zone():
+    assert C.is_wall_time("08:30") and C.is_wall_time("tomorrow 08:30")
+    assert C.is_wall_time("2026-11-04T08:30")
+    assert not C.is_wall_time("2026-11-04T08:30+00:00") and not C.is_wall_time("+30m")
+    assert not C.is_wall_time("now") and not C.is_wall_time(None)
+    assert C.parse_time("2026-11-04T08:30", "Europe/London") == datetime(2026, 11, 4, 8, 30, tzinfo=timezone.utc)
+
+
+def test_cet_fast_path_needs_no_lookup(monkeypatch):
+    monkeypatch.setattr(C, "_send", lambda *a, **k: (_ for _ in ()).throw(AssertionError("network")))
+    assert C.tz_at(50.73, 7.10) == C.default_tz()  # Bonn
+    assert C.tz_at(48.86, 2.35) == C.default_tz()  # Paris (same CET rules)

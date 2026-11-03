@@ -22,7 +22,6 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode
-from zoneinfo import ZoneInfo
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -59,6 +58,7 @@ _ROUTE_BASE = [
     "routes.warnings", "routes.optimizedIntermediateWaypointIndex",
     "routes.travelAdvisory.transitFare", "routes.travelAdvisory.tollInfo",
     "routes.localizedValues.transitFare", "geocodingResults",
+    "routes.legs.startLocation", "routes.legs.endLocation",
 ]
 _STEP_CORE = ["routes.legs.steps.travelMode", "routes.legs.steps.staticDuration",
               "routes.legs.steps.distanceMeters", "routes.legs.steps.transitDetails"]
@@ -119,12 +119,31 @@ _LATLNG = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$")
 _REL = re.compile(r"^\+\s*(\d+)\s*(m|min|h|d)$", re.I)
 
 
-def parse_time(value: str | datetime | None) -> datetime | None:
+_WALL = re.compile(r"(?:(today|heute|tomorrow|morgen)\s+)?(\d{1,2}):(\d{2})", re.I)
+
+
+def is_wall_time(value: Any) -> bool:
+    """True for local wall-clock input ('08:30', 'tomorrow 08:30', naive ISO): its meaning
+    depends on the time zone of the place."""
+    if not isinstance(value, str) or not value.strip() or value.strip().lower() == "now":
+        return False
+    v = value.strip()
+    if _REL.match(v) or _WALL.fullmatch(v):
+        return bool(_WALL.fullmatch(v))
+    try:
+        return datetime.fromisoformat(v).tzinfo is None
+    except ValueError:
+        return False
+
+
+def parse_time(value: str | datetime | None, tz: str | None = None) -> datetime | None:
     """-> aware UTC datetime, or None for now.
 
-    ISO-8601 with offset; naive ISO (GMAPS_TZ, default Europe/Berlin); 'HH:MM' (next
-    occurrence); 'today HH:MM' / 'tomorrow HH:MM'; relative '+45m' / '+2h' / '+1d'; 'now'.
+    ISO-8601 with offset; naive ISO and 'HH:MM' (next occurrence) / 'today HH:MM' /
+    'tomorrow HH:MM' are wall-clock times in `tz` (default GMAPS_TZ, Europe/Berlin);
+    relative '+45m' / '+2h' / '+1d'; 'now'.
     """
+    z = S.zone(tz or default_tz())
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -137,8 +156,7 @@ def parse_time(value: str | datetime | None) -> datetime | None:
             n, unit = int(m.group(1)), m.group(2).lower()[0]
             return datetime.now(timezone.utc) + timedelta(
                 **{{"m": "minutes", "h": "hours", "d": "days"}[unit]: n})
-        if m := re.fullmatch(r"(?:(today|heute|tomorrow|morgen)\s+)?(\d{1,2}):(\d{2})", v, re.I):
-            z = ZoneInfo(default_tz())
+        if m := _WALL.fullmatch(v):
             now = datetime.now(z)
             day, h, mi = (m.group(1) or "").lower(), int(m.group(2)), int(m.group(3))
             dt = now.replace(hour=h, minute=mi, second=0, microsecond=0)
@@ -153,7 +171,7 @@ def parse_time(value: str | datetime | None) -> datetime | None:
                 raise ValueError(f"Unparseable time {value!r}; use ISO-8601 "
                                  "(2026-11-04T08:30), 'HH:MM', or '+45m'") from e
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=ZoneInfo(default_tz()))
+        dt = dt.replace(tzinfo=z)
     return dt.astimezone(timezone.utc)
 
 
@@ -210,6 +228,21 @@ def _label(spec: Any) -> str:
                    or f"{d.get('lat')},{d.get('lng')}")
     s = str(spec).strip()
     return s[4:].strip() if s.lower().startswith("via:") else s
+
+
+# Which avoid flags each mode accepts (the API rejects the others with HTTP 400)
+_AVOID_OK = {"DRIVE": {"tolls", "highways", "ferries"}, "TWO_WHEELER": {"tolls", "highways", "ferries"},
+             "WALK": {"indoor"}, "BICYCLE": set(), "TRANSIT": set()}
+
+
+def _avoid_for(mode: str, avoid: list[str] | None, notes: list[str]) -> list[str]:
+    avoid = [a.lower().strip() for a in (avoid or []) if a.strip()]
+    _route_modifiers(avoid)  # validates names
+    ok = [a for a in avoid if a in _AVOID_OK.get(mode, set())]
+    dropped = [a for a in avoid if a not in ok]
+    if dropped:
+        notes.append(f"avoid {', '.join(dropped)} ignored: not supported for {mode}")
+    return ok
 
 
 def _route_modifiers(avoid: list[str] | None) -> dict | None:
@@ -339,11 +372,13 @@ def build_route_request(origin, destination, *, intermediates=None, travel_mode=
                         traffic_model=None, avoid=None, units="METRIC", language=None,
                         region=None, optimize_waypoint_order=False, polyline=False,
                         polyline_quality=None, geojson=False, extra_computations=None,
-                        reference_routes=None, extra_request=None) -> tuple[dict, list[str]]:
+                        reference_routes=None, extra_request=None, tz_dep=None,
+                        tz_arr=None) -> tuple[dict, list[str]]:
+    """tz_dep / tz_arr: zone for wall-clock departure / arrival input (default GMAPS_TZ)."""
     mode = norm_mode(travel_mode)
     notes: list[str] = []
-    dep = parse_time(departure_time)
-    arr = parse_time(arrival_time)
+    dep = parse_time(departure_time, tz_dep)
+    arr = parse_time(arrival_time, tz_arr)
     if dep and arr:
         raise ValueError("departure_time and arrival_time are mutually exclusive")
     if arr and mode != "TRANSIT":
@@ -388,12 +423,9 @@ def build_route_request(origin, destination, *, intermediates=None, travel_mode=
     elif transit_modes or transit_routing:
         notes.append(f"transit preferences ignored for {mode}")
 
-    mods = _route_modifiers(avoid)
+    mods = _route_modifiers(_avoid_for(mode, avoid, notes))
     if mods:
-        if mode == "TRANSIT":
-            notes.append("avoid options ignored for TRANSIT")
-        else:
-            body["routeModifiers"] = mods
+        body["routeModifiers"] = mods
     # A departure time at/before 'now' is rejected for traffic-aware modes; treat as 'now'.
     if dep and (mode == "TRANSIT" or dep > datetime.now(timezone.utc) + timedelta(seconds=60)):
         body["departureTime"] = _rfc3339(dep)
@@ -529,6 +561,89 @@ def _send_route(body: dict, mask: str) -> tuple[dict, list[str]]:
     return _send("POST", ROUTES_URL, json=body2, headers=hdr), notes
 
 
+# ------------------------------------------------------------------ time zones
+TIMEZONE_URL = "https://maps.googleapis.com/maps/api/timezone/json"
+# Zones sharing CET/CEST rules.  Points inside the boxes below are all on CET/CEST, so when
+# home is one of these no lookup is needed.  Box 1: lat 42.5-57.5, lng 1.8-16 (east of the UK's
+# easternmost point 1.76E: Benelux, eastern FR, DE, CH, AT, CZ, DK, S-NO/SE, W-PL, N-IT).
+# Box 2: lat 37.6-42.5, lng 6.5-19 (IT incl. Sardinia, Corsica, HR/BA/ME coast; north of
+# Tunisia, west of Greece).
+_CET = {"Europe/Berlin", "Europe/Paris", "Europe/Amsterdam", "Europe/Brussels", "Europe/Vienna",
+        "Europe/Zurich", "Europe/Rome", "Europe/Madrid", "Europe/Prague", "Europe/Warsaw",
+        "Europe/Copenhagen", "Europe/Oslo", "Europe/Stockholm", "Europe/Luxembourg",
+        "Europe/Budapest", "Europe/Ljubljana", "Europe/Zagreb", "Europe/Bratislava",
+        "Europe/Monaco", "Europe/Andorra", "Europe/Vaduz", "Europe/Malta", "Europe/Belgrade"}
+_tz_cache: dict[tuple[float, float], str | None] = {}
+_tz_api = {"ok": True}
+
+
+def tz_at(lat: float, lng: float) -> str | None:
+    """IANA zone at a point (Time Zone API, cached per ~10 km cell; free fast path for the
+    CET core when home is CET).  None if unknown or the API is not enabled for the key."""
+    home = default_tz()
+    if home in _CET and ((42.5 <= lat <= 57.5 and 1.8 <= lng <= 16.0)
+                         or (37.6 <= lat < 42.5 and 6.5 <= lng <= 19.0)):
+        return home
+    key = (round(lat, 1), round(lng, 1))
+    if key in _tz_cache:
+        return _tz_cache[key]
+    if not _tz_api["ok"] or os.environ.get("GMAPS_TZ_LOOKUP", "1") == "0":
+        return None
+    try:
+        raw = _send("GET", TIMEZONE_URL, params={"location": f"{lat},{lng}",
+                                                  "timestamp": int(time.time())},
+                    key_in="param", retries=1)
+    except GoogleMapsError:
+        return None
+    st = raw.get("status")
+    if st == "OK":
+        _tz_cache[key] = raw.get("timeZoneId")
+    elif st in ("REQUEST_DENIED", "OVER_DAILY_LIMIT"):
+        _tz_api["ok"] = False  # API not enabled: stop trying, fall back to GMAPS_TZ
+        return None
+    else:
+        _tz_cache[key] = None
+    return _tz_cache[key]
+
+
+def _route_zones(raw: dict) -> tuple[str | None, str | None]:
+    """(origin zone, destination zone) of the first route: from its vehicles for transit
+    (free), else by looking up the leg endpoints."""
+    routes = raw.get("routes") or []
+    if not routes:
+        return None, None
+    r = routes[0]
+    legs = r.get("legs") or []
+    td = [s["transitDetails"] for leg in legs for s in leg.get("steps", []) if s.get("transitDetails")]
+    otz = ((td[0].get("localizedValues") or {}).get("departureTime") or {}).get("timeZone") if td else None
+    dtz = ((td[-1].get("localizedValues") or {}).get("arrivalTime") or {}).get("timeZone") if td else None
+
+    def at(loc):
+        ll = (loc or {}).get("latLng")
+        return tz_at(ll["latitude"], ll["longitude"]) if ll else None
+    if not otz and legs:
+        otz = at(legs[0].get("startLocation"))
+    if not dtz and legs:
+        dtz = at(legs[-1].get("endLocation"))
+    return otz, dtz or otz
+
+
+def _differs(z: str | None, home: str, when_str: Any) -> bool:
+    if not z or not is_wall_time(when_str):
+        return False
+    t = parse_time(when_str, home) or datetime.now(timezone.utc)
+    return t.astimezone(S.zone(z)).utcoffset() != t.astimezone(S.zone(home)).utcoffset()
+
+
+def _redo_zones(departure_time, arrival_time, otz, dtz, home) -> tuple[str | None, str | None, str | None]:
+    """If wall-clock input was read in the wrong zone, return the zones to re-read it in."""
+    if _differs(otz, home, departure_time):
+        return otz, None, f"departure time read as local time at the origin ({otz})"
+    if _differs(dtz, home, arrival_time):
+        return None, dtz, f"arrival time read as local time at the destination ({dtz})"
+    return None, None, None
+
+
 def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRANSIT",
                    departure_time=None, arrival_time=None, alternatives=True, max_routes=None,
                    detail="brief", format="text", fields=None, dry_run=False, **opts):
@@ -547,16 +662,26 @@ def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRAN
     if dry_run:
         return {"url": ROUTES_URL, "field_mask": mask, "body": body, "notes": notes}
     raw, fixed = _send_route(body, mask)
+    tz = default_tz()
+    otz, dtz = _route_zones(raw)
+    tz_dep, tz_arr, why = _redo_zones(departure_time, arrival_time, otz, dtz, tz)
+    if why:  # wall-clock time meant local time there: ask again with the right instant
+        body, notes = build_route_request(
+            origin, destination, intermediates=intermediates, travel_mode=travel_mode,
+            departure_time=departure_time, arrival_time=arrival_time,
+            alternatives=alternatives, tz_dep=tz_dep, tz_arr=tz_arr, **opts)
+        raw, fixed = _send_route(body, mask)
+        otz, dtz = (_route_zones(raw) if raw.get("routes") else (otz, dtz))
+        notes.append(why)
     notes += fixed
     if format == "raw":
         return raw
-    tz = default_tz()
-    dep = parse_time(departure_time)
-    arr = parse_time(arrival_time)
+    dep = parse_time(departure_time, tz_dep)
+    arr = parse_time(arrival_time, tz_arr)
     anchor = arr or dep or now
     routes, more = _postprocess(raw, mode, tz=tz, now=now, dep=dep, arr=arr,
                                 with_steps=detail == "steps",
-                                transit_modes=opts.get("transit_modes"))
+                                transit_modes=opts.get("transit_modes"), otz=otz, dtz=dtz)
     notes += more
     if max_routes:
         routes = routes[:max_routes]
@@ -565,16 +690,17 @@ def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRAN
            "_tz": tz,
            "_query": {"origin": _label(origin), "destination": _label(destination),
                       "via": [_label(i) for i in intermediates or []], "now": now,
-                      "depart_at": dep, "arrive_by": arr, "anchor": anchor}}
+                      "depart_at": dep, "arrive_by": arr, "anchor": anchor,
+                      "tz_o": otz or tz, "tz_d": dtz or otz or tz, "tz_known": bool(otz)}}
     return R.routes_text(res) if format == "text" else _json(res)
 
 
 def _postprocess(raw: dict, mode: str, *, tz: str, now: datetime, dep, arr, with_steps=False,
-                 transit_modes=None) -> tuple[list[dict], list[str]]:
+                 transit_modes=None, otz=None, dtz=None) -> tuple[list[dict], list[str]]:
     """Summarise, enforce transit modes, sort best-first, explain empty results."""
     notes: list[str] = []
     routes = [S.summarize_route(r, tz=tz, mode=mode, depart_ref=None if arr else (dep or now),
-                                arrive_ref=arr, with_steps=with_steps)
+                                arrive_ref=arr, with_steps=with_steps, otz=otz, dtz=dtz)
               for r in raw.get("routes", [])]
     if mode == "TRANSIT" and transit_modes:
         # Google treats allowedTravelModes as a preference and still returns other vehicles
@@ -588,6 +714,16 @@ def _postprocess(raw: dict, mode: str, *, tz: str, now: datetime, dep, arr, with
             else:
                 notes.append(f"no option uses only {'/'.join(sorted(allowed))}; showing what "
                              "Google returned")
+    if mode != "TRANSIT":  # Google sometimes returns the same route twice
+        seen, uniq = set(), []
+        for r in routes:
+            k = (round((r.get("duration_s") or 0) / 60), round((r.get("distance_m") or 0) / 100))
+            if k not in seen:
+                seen.add(k)
+                uniq.append(r)
+        routes = uniq
+    if routes and not otz:
+        notes.append(f"origin time zone unknown (Time Zone API unavailable); clock times are {tz}")
     if mode == "TRANSIT":
         # API order is not by arrival; sort so option 1 is the best one
         routes.sort(key=(lambda r: -(r.get("leave") or now).timestamp()) if arr else
@@ -601,9 +737,21 @@ def _postprocess(raw: dict, mode: str, *, tz: str, now: datetime, dep, arr, with
         elif mode == "TRANSIT" and (arr or dep or now) > now + timedelta(days=30):
             notes.append("no transit data that far ahead; timetables are usually only published "
                          "a few weeks in advance")
+        elif raw.get("geocodingResults", {}).get("origin", {}).get("placeId") and \
+                raw["geocodingResults"]["origin"].get("placeId") == \
+                raw["geocodingResults"].get("destination", {}).get("placeId"):
+            notes.append("origin and destination resolve to the same place")
         elif mode == "TRANSIT":
             notes.append("no transit connection found for that time (no service, or out of the "
                          "covered area); try another time or compare_modes")
+        elif mode == "TWO_WHEELER":
+            notes.append("TWO_WHEELER routing is only offered in some countries (not most of "
+                         "Europe); use DRIVE")
+        elif mode == "BICYCLE":
+            notes.append("no bicycle route: Google may not offer cycling directions here, or no "
+                         "cyclable connection exists (islands, motorway-only links)")
+        else:
+            notes.append(f"no {mode} route between these places")
     return routes, notes
 
 
@@ -618,7 +766,12 @@ def _json(res: dict) -> dict:
     out = S.finalize({k: v for k, v in res.items() if not k.startswith("_")}, tz)
     if "_query" in res:
         q = res["_query"]
-        out["query"] = S.finalize({k: v for k, v in q.items() if k != "anchor" and v not in (None, [])}, tz)
+        q = {k: v for k, v in q.items()
+             if k not in ("anchor", "tz_o", "tz_d", "tz_known") and v not in (None, [])}
+        out["query"] = S.finalize(q, res["_query"].get("tz_o") or tz)
+        for k in ("tz_o", "tz_d"):
+            if res["_query"].get(k):
+                out["query"]["origin_tz" if k == "tz_o" else "destination_tz"] = res["_query"][k]
     return out
 
 
@@ -629,39 +782,60 @@ def compare_modes(origin, destination, *, modes=DEFAULT_COMPARE,
     _check_format(format)
     modes = list(dict.fromkeys(norm_mode(m) for m in modes))
     now = datetime.now(timezone.utc)
-    arr = parse_time(arrival_time)
-    dep = parse_time(departure_time)
     tz = default_tz()
     notes: list[str] = []
 
-    def one(m: str):
+    def one(m: str, tz_dep, tz_arr):
         body, n = build_route_request(origin, destination, travel_mode=m, alternatives=m == "TRANSIT",
                                       departure_time=departure_time,
-                                      arrival_time=arrival_time if m == "TRANSIT" else None, **opts)
+                                      arrival_time=arrival_time if m == "TRANSIT" else None,
+                                      tz_dep=tz_dep, tz_arr=tz_arr, **opts)
         raw, fixed = _send_route(body, _route_mask(m, "brief", body))
-        n = n + fixed
-        rs, more = _postprocess(raw, m, tz=tz, now=now, dep=dep, arr=arr,
-                                transit_modes=opts.get("transit_modes"))
-        return m, rs, n + more, raw
+        return raw, n + fixed
 
-    results: dict = {}
-    raws: dict = {}
-    with ThreadPoolExecutor(max_workers=len(modes)) as ex:
-        futs = [ex.submit(one, m) for m in modes]
-        for f in futs:
-            try:
-                m, rs, n, raw = f.result()
-                results[m] = {"best": rs[0] if rs else None,
-                              "maps_url": maps_url(origin, destination, None, m)}
-                raws[m] = raw
-                for x in n:  # the same waypoint repair happens in every mode: say it once
-                    t = x if "resolved via Places" in x else f"{m}: {x}"
-                    if t not in notes:
-                        notes.append(t)
-            except (GoogleMapsError, ValueError) as e:
-                results[modes[futs.index(f)]] = {"error": str(e)}
+    def run_all(tz_dep=None, tz_arr=None) -> dict:
+        out = {}
+        with ThreadPoolExecutor(max_workers=len(modes)) as ex:
+            futs = {m: ex.submit(one, m, tz_dep, tz_arr) for m in modes}
+            for m, f in futs.items():
+                try:
+                    out[m] = f.result()
+                except (GoogleMapsError, ValueError) as e:
+                    out[m] = e
+        return out
+
+    got = run_all()
+    # zones: prefer the transit result (free), else any mode's leg endpoints
+    order = sorted(got, key=lambda m: m != "TRANSIT")
+    otz = dtz = None
+    for m in order:
+        if not isinstance(got[m], Exception) and got[m][0].get("routes"):
+            otz, dtz = _route_zones(got[m][0])
+            if otz:
+                break
+    tz_dep, tz_arr, why = _redo_zones(departure_time, arrival_time, otz, dtz, tz)
+    if why:
+        got = run_all(tz_dep, tz_arr)
+        notes.append(why)
+    dep = parse_time(departure_time, tz_dep)
+    arr = parse_time(arrival_time, tz_arr)
     if format == "raw":
-        return raws
+        return {m: (v if isinstance(v, Exception) else v[0]) for m, v in got.items()}
+    results: dict = {}
+    for m in modes:
+        v = got[m]
+        if isinstance(v, Exception):
+            results[m] = {"error": str(v)}
+            continue
+        raw, n = v
+        rs, more = _postprocess(raw, m, tz=tz, now=now, dep=dep, arr=arr,
+                                transit_modes=opts.get("transit_modes"), otz=otz, dtz=dtz)
+        results[m] = {"best": rs[0] if rs else None,
+                      "maps_url": maps_url(origin, destination, None, m)}
+        for x in n + more:  # the same waypoint repair happens in every mode: say it once
+            t = x if "resolved via Places" in x else f"{m}: {x}"
+            if t not in notes:
+                notes.append(t)
     if arr and any(m in ("DRIVE", "TWO_WHEELER") for m in modes):
         notes.append("DRIVE leave time = arrival minus current traffic estimate (approximate)")
 
@@ -674,7 +848,8 @@ def compare_modes(origin, destination, *, modes=DEFAULT_COMPARE,
     ranking = sorted((m for m in results if score(m) is not None), key=score)
     res = {"ranking": ranking, "modes": results, "notes": notes, "_tz": tz,
            "_query": {"origin": _label(origin), "destination": _label(destination), "now": now,
-                      "depart_at": dep, "arrive_by": arr, "anchor": arr or dep or now}}
+                      "depart_at": dep, "arrive_by": arr, "anchor": arr or dep or now,
+                      "tz_o": otz or tz, "tz_d": dtz or otz or tz, "tz_known": bool(otz)}}
     return R.compare_text(res) if format == "text" else _json(res)
 
 
@@ -726,8 +901,8 @@ def compute_route_matrix(origins: list, destinations: list, *, travel_mode="TRAN
     if named > 50:
         raise ValueError(f"{named} origins+destinations given as address/place_id; the API "
                          "allows 50 (use lat,lng for the rest)")
-    mods = _route_modifiers(avoid)
-    if mods and mode != "TRANSIT":
+    mods = _route_modifiers(_avoid_for(mode, avoid, notes))
+    if mods:
         for o in body["origins"]:
             o["routeModifiers"] = mods
     if rp:
@@ -762,6 +937,9 @@ def compute_route_matrix(origins: list, destinations: list, *, travel_mode="TRAN
         return raw
     if mode == "TRANSIT":
         notes.append("TRANSIT matrix durations exclude the initial wait for the vehicle")
+    if is_wall_time(departure_time) or is_wall_time(arrival_time):
+        notes.append(f"wall-clock time read in {default_tz()}; give an ISO offset "
+                     "(e.g. 2026-11-04T08:30+00:00) for places in other time zones")
     res = {"travel_mode": mode, "matrix": S.summarize_matrix(raw, origins, destinations),
            "notes": notes, "_origins": [_label(o) for o in origins],
            "_destinations": [_label(d) for d in destinations]}

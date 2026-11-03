@@ -39,15 +39,33 @@ def parse_ts(iso: str | None) -> datetime | None:
     return datetime.fromisoformat(iso.replace("Z", "+00:00"))
 
 
+_ALIASES = {"Europe/Kiev": "Europe/Kyiv", "Europe/Uzhgorod": "Europe/Kyiv",
+            "Europe/Zaporozhye": "Europe/Kyiv", "Atlantic/Faeroe": "Atlantic/Faroe",
+            "Asia/Istanbul": "Europe/Istanbul", "Europe/Nicosia": "Asia/Nicosia"}
+
+
+def zone(tz: str | None, fallback: str = "Europe/Berlin") -> ZoneInfo:
+    """ZoneInfo that never raises: Google still returns legacy names (e.g. 'Europe/Kiev')
+    that some tz databases no longer ship."""
+    for name in (tz, _ALIASES.get(tz or ""), fallback, "UTC"):
+        if not name:
+            continue
+        try:
+            return ZoneInfo(name)
+        except Exception:
+            continue
+    return ZoneInfo("UTC")
+
+
 def local_iso(dt: datetime | None, tz: str) -> str | None:
-    return dt.astimezone(ZoneInfo(tz)).isoformat(timespec="minutes") if dt else None
+    return dt.astimezone(zone(tz)).isoformat(timespec="minutes") if dt else None
 
 
 def hhmm(dt: datetime | None, tz: str, ref: datetime | None = None, with_date: bool = False) -> str | None:
     """'10:50'; when the local date differs from ref's: 'Wed 08:30' (with_date: 'Wed 04.11. 08:30')."""
     if not dt:
         return None
-    z = ZoneInfo(tz)
+    z = zone(tz)
     d = dt.astimezone(z)
     if ref is not None and ref.astimezone(z).date() != d.date():
         return d.strftime("%a %d.%m. %H:%M" if with_date else "%a %H:%M")
@@ -124,6 +142,8 @@ def _transit_segment(step: dict, tz: str) -> dict:
         "_dep": parse_ts(sd.get("departureTime")),
         "_arr": parse_ts(sd.get("arrivalTime")),
         "_tz": (tlv.get("departureTime") or {}).get("timeZone") or tz,
+        "_atz": (tlv.get("arrivalTime") or {}).get("timeZone")
+                or (tlv.get("departureTime") or {}).get("timeZone") or tz,
         "stops": td.get("stopCount"),
         "headway_min": round(parse_duration(td["headway"]) / 60) if td.get("headway") else None,
         "instruction": clean((step.get("navigationInstruction") or {}).get("instructions")),
@@ -160,11 +180,14 @@ def _step(s: dict) -> dict:
 
 
 def summarize_route(route: dict, *, tz: str, mode: str, depart_ref: datetime | None,
-                    arrive_ref: datetime | None, with_steps: bool = False) -> dict:
+                    arrive_ref: datetime | None, with_steps: bool = False,
+                    otz: str | None = None, dtz: str | None = None) -> dict:
     """Normalise one route.
 
     depart_ref: requested departure (or request time); used to compute waiting time and, for
     non-transit modes, absolute leave/arrive times.  arrive_ref: requested arrival (TRANSIT only).
+    otz/dtz: time zone at origin/destination (leave/arrive are shown there); transit routes
+    take them from their first/last vehicle instead.
     """
     dur = parse_duration(route.get("duration"))
     static = parse_duration(route.get("staticDuration"))
@@ -200,6 +223,8 @@ def summarize_route(route: dict, *, tz: str, mode: str, depart_ref: datetime | N
                 else:
                     walked += s.get("duration_s", 0)
             out.update({
+                "_ltz": transit[0].get("_tz") or otz or tz,
+                "_atz": transit[-1].get("_atz") or dtz or otz or tz,
                 "leave": leave, "arrive": arrive,
                 "transfers": len(transit) - 1,
                 "walk_m": sum(s.get("distance_m", 0) for s in segs if s["type"] == "walk"),
@@ -213,6 +238,8 @@ def summarize_route(route: dict, *, tz: str, mode: str, depart_ref: datetime | N
             out["walk_only"] = True
             out["walk_m"] = dist
         out["segments"] = segs
+    out.setdefault("_ltz", otz or tz)
+    out.setdefault("_atz", dtz or otz or tz)
     if mode != "TRANSIT" or out.get("walk_only"):
         if arrive_ref is not None and out["duration_s"] is not None:
             out["arrive"] = arrive_ref
@@ -242,7 +269,10 @@ def finalize(obj: Any, tz: str, ref: datetime | None = None) -> Any:
         out = {}
         for k, v in obj.items():
             if k in ("_dep", "_arr"):
-                out[k[1:]] = local_iso(v, obj.get("_tz", tz))
+                out[k[1:]] = local_iso(v, obj.get("_tz" if k == "_dep" else "_atz", tz))
+                continue
+            if k in ("leave", "arrive") and isinstance(v, datetime):
+                out[k] = local_iso(v, obj.get("_ltz" if k == "leave" else "_atz", tz))
                 continue
             if k.startswith("_"):
                 continue

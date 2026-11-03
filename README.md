@@ -97,6 +97,39 @@ WALK     10:50 → 17:16 (6 h 26 min) · 28.4 km
 - **`compare` modes**: `compare` defaults to TRANSIT, BICYCLE and WALK. DRIVE is opt-in because
   traffic-aware driving bills as Pro.
 
+## Time zones (tested across Europe: WET, CET, EET, MSK, TRT, Azores/Canaries)
+- **Display**: every clock time is shown in the local time of the place where it happens.
+  - Leave times use the origin's zone and arrivals use the destination's.
+  - A zone abbreviation is added when it differs from the origin's, e.g. `St Pancras 11:04 →
+    Lille-Europe 13:26 CET`.
+  - The header says whose clock it is when that isn't `GMAPS_TZ`, e.g. `depart now (10:32,
+    Europe/London time)`.
+- **Wall-clock input** (`08:30`, `tomorrow 08:30`, naive ISO):
+  - A departure is read as local time at the origin; an arrive-by time as local time at the
+    destination.
+  - If the place's zone differs from `GMAPS_TZ`, the request is repeated with the right instant and
+    a note says so.
+  - ISO times with an offset are taken as given.
+- **Where the zone comes from**:
+  - Transit: from the vehicles' own zones, which costs nothing.
+  - Other modes: the Time Zone API at the leg endpoints, cached per ~10 km cell.
+  - No lookup is needed inside the CET core when `GMAPS_TZ` is a CET zone.
+  - If the Time Zone API isn't enabled for the key, a note says the times are in `GMAPS_TZ`.
+  - `GMAPS_TZ_LOOKUP=0` disables the lookup.
+- **Legacy zone names**: names Google still returns, such as `Europe/Kiev`, are handled. The
+  `tzdata` dependency covers them, and unknown names fall back instead of crashing.
+- **Matrix**: the matrix returns no places, so wall-clock times there are read in `GMAPS_TZ`. Pass an
+  ISO offset for other zones.
+
+## Other edge cases handled
+- **`avoid`**: options a mode doesn't support are dropped with a note instead of an HTTP 400. Tolls,
+  highways and ferries apply only to DRIVE and TWO_WHEELER; indoor applies only to WALK.
+- **Empty results come with a reason**:
+  - TWO_WHEELER isn't offered in most of Europe.
+  - BICYCLE isn't offered in some countries, for example Iceland.
+  - Origin and destination are the same place.
+- **Duplicates**: identical duplicate alternatives are removed.
+
 ## Performance (measured from a cloud container, Bonn queries, 2026-11-03)
 | | old version | now |
 |---|---|---|
