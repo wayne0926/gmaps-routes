@@ -86,6 +86,24 @@ def _fare(route: dict) -> str | None:
     return _text(route.get("localizedValues"), "transitFare") or f"{amount:.2f} {f.get('currencyCode', '')}".strip()
 
 
+VEHICLE_CLASS = {  # Routes API vehicle type -> transitPreferences.allowedTravelModes value
+    "BUS": "BUS", "INTERCITY_BUS": "BUS", "TROLLEYBUS": "BUS", "SHARE_TAXI": "BUS",
+    "SUBWAY": "SUBWAY", "METRO_RAIL": "SUBWAY",
+    "TRAM": "LIGHT_RAIL", "LIGHT_RAIL": "LIGHT_RAIL", "MONORAIL": "LIGHT_RAIL",
+    "HEAVY_RAIL": "TRAIN", "COMMUTER_TRAIN": "TRAIN", "HIGH_SPEED_TRAIN": "TRAIN",
+    "LONG_DISTANCE_TRAIN": "TRAIN", "RAIL": "TRAIN",
+}
+
+
+def uses_only(route: dict, allowed: set[str]) -> bool:
+    """True if every vehicle in a summarised TRANSIT route is in the allowed classes.
+    'RAIL' allows TRAIN, SUBWAY and LIGHT_RAIL (as in the API)."""
+    if "RAIL" in allowed:
+        allowed = allowed | {"TRAIN", "SUBWAY", "LIGHT_RAIL"}
+    return all(VEHICLE_CLASS.get(s.get("vehicle", ""), "OTHER") in allowed
+               for s in route.get("segments", []) if s["type"] == "transit")
+
+
 def _transit_segment(step: dict, tz: str) -> dict:
     td = step["transitDetails"]
     sd = td.get("stopDetails") or {}
@@ -191,8 +209,11 @@ def summarize_route(route: dict, *, tz: str, mode: str, depart_ref: datetime | N
                 out["duration_s"] = (arrive - leave).total_seconds()
             if leave and depart_ref and not arrive_ref:
                 out["wait_before_s"] = max(0.0, (leave - depart_ref).total_seconds())
+        else:  # walking beats every vehicle: Google returns a walk-only "transit" route
+            out["walk_only"] = True
+            out["walk_m"] = dist
         out["segments"] = segs
-    else:
+    if mode != "TRANSIT" or out.get("walk_only"):
         if arrive_ref is not None and out["duration_s"] is not None:
             out["arrive"] = arrive_ref
             out["leave"] = arrive_ref - timedelta(seconds=out["duration_s"])

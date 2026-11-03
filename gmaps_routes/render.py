@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from .summary import fmt_distance as D, fmt_duration as T, hhmm
 
@@ -43,16 +44,19 @@ def _seg(s: dict, tz: str, ref: datetime | None) -> str:
             f"{hhmm(s.get('_arr'), tz_s, ref)}" + (f" ({extra})" if extra else ""))
 
 
-def route_line(r: dict, mode: str, tz: str, ref: datetime | None) -> str:
+def route_line(r: dict, mode: str, tz: str, ref: datetime | None, live: bool = True) -> str:
+    """live: the query is 'depart now', so the wait before leaving is worth showing."""
     bits = []
     if r.get("leave") and r.get("arrive"):
         bits.append(f"{hhmm(r['leave'], tz, ref)} → {hhmm(r['arrive'], tz, ref)} ({T(r['duration_s'])})")
     else:
         bits.append(T(r.get("duration_s")) or "?")
-    if mode != "TRANSIT" or not r.get("segments"):
+    if mode != "TRANSIT" or r.get("walk_only"):
         bits.append(D(r.get("distance_m")))
-    if r.get("wait_before_s", 0) >= 60:
+    if live and r.get("wait_before_s", 0) >= 60:
         bits.append(f"leave in {T(r['wait_before_s'])}")
+    if r.get("walk_only"):
+        bits.append("walk only (faster than any connection)")
     if "transfers" in r:
         bits.append(f"{r['transfers']} transfer{'s' if r['transfers'] != 1 else ''}")
         bits.append(f"walk {D(r['walk_m'])}")
@@ -71,12 +75,13 @@ def routes_text(res: dict) -> str:
     head = f"{mode} {q['origin']} → {q['destination']}"
     if q.get("via"):
         head += f" (via {', '.join(q['via'])})"
+    live = not (q.get("depart_at") or q.get("arrive_by"))
     lines = [f"{head} · {_when(q, tz)}"]
     if not res["routes"]:
         lines.append("No route found.")
     for i, r in enumerate(res["routes"], 1):
-        lines.append(f"{i}. {route_line(r, mode, tz, ref)}")
-        if r.get("segments"):
+        lines.append(f"{i}. {route_line(r, mode, tz, ref, live)}")
+        if r.get("segments") and not r.get("walk_only"):
             segs = [s for s in r["segments"] if s["type"] == "transit" or s.get("duration_s", 0) >= 30]
             lines.append("   " + " → ".join(_seg(s, tz, ref) for s in segs))
         if r.get("optimized_order") is not None:
@@ -98,6 +103,7 @@ def compare_text(res: dict) -> str:
     tz, q = res["_tz"], res["_query"]
     ref = q["anchor"]
     crit = "latest departure" if q.get("arrive_by") else "earliest arrival"
+    live = not (q.get("depart_at") or q.get("arrive_by"))
     lines = [f"{q['origin']} → {q['destination']} · {_when(q, tz)} · ranked by {crit}"]
     for m in res["ranking"] + [m for m in res["modes"] if m not in res["ranking"]]:
         v = res["modes"][m]
@@ -108,8 +114,8 @@ def compare_text(res: dict) -> str:
         if not best:
             lines.append(f"{m:8s} no route")
             continue
-        line = f"{m:8s} {route_line(best, m, tz, ref)}"
-        if best.get("segments"):
+        line = f"{m:8s} {route_line(best, m, tz, ref, live)}"
+        if best.get("segments") and not best.get("walk_only"):
             line += " · " + " + ".join(line_label(s) for s in best["segments"] if s["type"] == "transit")
         lines.append(line)
         for w in best.get("warnings", []):
@@ -130,10 +136,10 @@ def matrix_text(res: dict) -> str:
     return "\n".join(lines)
 
 
-def places_text(res: dict) -> str:
+def places_text(res: dict, tz: str = "Europe/Berlin") -> str:
     if not res["places"]:
         return f"No places found for {res['query']!r}."
-    lines = []
+    lines = ["(filtered: open now)"] if res.get("open_now") else []
     for i, p in enumerate(res["places"], 1):
         bits = [f"{i}. {p.get('name')}", p.get("address")]
         if p.get("rating") is not None:
@@ -149,8 +155,9 @@ def places_text(res: dict) -> str:
         for k in ("phone", "website"):
             if p.get(k):
                 lines.append(f"   {k}: {p[k]}")
-        if p.get("hours"):
-            lines.append("   hours: " + "; ".join(p["hours"]))
+        if p.get("hours"):  # weekdayDescriptions: Monday first; text shows today only
+            today = p["hours"][datetime.now(ZoneInfo(tz)).weekday() % len(p["hours"])]
+            lines.append(f"   today: {today.split(': ', 1)[-1]}")
     return "\n".join(lines)
 
 

@@ -114,3 +114,41 @@ def test_request_shape():
 
 def test_polyline():
     assert S.decode_polyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@")[0] == [38.5, -120.2]
+
+
+def test_walk_only_transit_route():
+    route = {"duration": "300s", "distanceMeters": 370,
+             "legs": [{"steps": [{"travelMode": "WALK", "distanceMeters": 370, "staticDuration": "300s"}]}]}
+    arr = datetime(2026, 11, 4, 8, 15, tzinfo=timezone.utc)
+    r = S.summarize_route(route, tz=TZ, mode="TRANSIT", depart_ref=None, arrive_ref=arr)
+    assert r["walk_only"] and r["arrive"] == arr and (arr - r["leave"]).total_seconds() == 300
+    assert "walk only" in R.route_line(r, "TRANSIT", TZ, arr, live=False)
+
+
+def test_transit_mode_filter():
+    raw = load("transit_bonn_dueren")
+    rs = [S.summarize_route(r, tz=TZ, mode="TRANSIT", depart_ref=None, arrive_ref=None)
+          for r in raw["routes"]]
+    assert all(S.uses_only(r, {"RAIL"}) or not S.uses_only(r, {"TRAIN"}) for r in rs)
+    assert any(S.uses_only(r, {"TRAIN"}) for r in rs)
+    assert not any(S.uses_only(r, {"BUS"}) for r in rs if any(
+        s["type"] == "transit" and s.get("vehicle") == "HEAVY_RAIL" for s in r["segments"]))
+
+
+def test_mode_aliases_and_relative_days():
+    assert C.norm_mode("bike") == "BICYCLE" and C.norm_mode("car") == "DRIVE"
+    with pytest.raises(ValueError):
+        C.norm_mode("teleport")
+    t = C.parse_time("tomorrow 08:30")
+    assert t is not None and t > datetime.now(timezone.utc)
+
+
+def test_partial_match_detection():
+    body = {"origin": {"address": "Bonn Hbf"}, "destination": {"address": "Köln Hbf"},
+            "intermediates": [{"location": {}}, {"address": "Brühl", "via": True}]}
+    raw = {"geocodingResults": {
+        "origin": {"placeId": "x", "type": ["transit_station"]},
+        "destination": {"placeId": "y", "type": ["locality"], "partialMatch": True},
+        "intermediates": [{"intermediateWaypointRequestIndex": 1, "partialMatch": True}]}}
+    assert C._partial_waypoints(raw, body) == [("destination", None, "Köln Hbf"),
+                                                ("intermediates", 1, "Brühl")]

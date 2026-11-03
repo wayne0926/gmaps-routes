@@ -36,6 +36,19 @@ GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 PLACES_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 
 TRAVEL_MODES = ("TRANSIT", "BICYCLE", "WALK", "DRIVE", "TWO_WHEELER")
+_MODE_ALIAS = {"BIKE": "BICYCLE", "CYCLING": "BICYCLE", "BICYCLING": "BICYCLE", "WALKING": "WALK",
+               "FOOT": "WALK", "CAR": "DRIVE", "DRIVING": "DRIVE", "PUBLIC": "TRANSIT",
+               "PUBLIC_TRANSPORT": "TRANSIT", "PT": "TRANSIT", "MOTORCYCLE": "TWO_WHEELER",
+               "SCOOTER": "TWO_WHEELER"}
+DEFAULT_COMPARE = ("TRANSIT", "BICYCLE", "WALK")  # DRIVE is opt-in: traffic-aware = Pro SKU
+
+
+def norm_mode(m: str) -> str:
+    u = str(m).strip().upper().replace("-", "_").replace(" ", "_")
+    u = _MODE_ALIAS.get(u, u)
+    if u not in TRAVEL_MODES:
+        raise ValueError(f"travel_mode must be one of {TRAVEL_MODES}")
+    return u
 TRANSIT_MODES = ("BUS", "SUBWAY", "TRAIN", "LIGHT_RAIL", "RAIL")
 TRANSIT_ROUTING = ("LESS_WALKING", "FEWER_TRANSFERS")
 FORMATS = ("text", "json", "raw")
@@ -109,8 +122,8 @@ _REL = re.compile(r"^\+\s*(\d+)\s*(m|min|h|d)$", re.I)
 def parse_time(value: str | datetime | None) -> datetime | None:
     """-> aware UTC datetime, or None for now.
 
-    ISO-8601 with offset; naive ISO (GMAPS_TZ, default Europe/Berlin); 'HH:MM' (today, or
-    tomorrow if already past); relative '+45m' / '+2h' / '+1d'; None / '' / 'now'.
+    ISO-8601 with offset; naive ISO (GMAPS_TZ, default Europe/Berlin); 'HH:MM' (next
+    occurrence); 'today HH:MM' / 'tomorrow HH:MM'; relative '+45m' / '+2h' / '+1d'; 'now'.
     """
     if value is None:
         return None
@@ -124,13 +137,15 @@ def parse_time(value: str | datetime | None) -> datetime | None:
             n, unit = int(m.group(1)), m.group(2).lower()[0]
             return datetime.now(timezone.utc) + timedelta(
                 **{{"m": "minutes", "h": "hours", "d": "days"}[unit]: n})
-        if re.fullmatch(r"\d{1,2}:\d{2}", v):
+        if m := re.fullmatch(r"(?:(today|heute|tomorrow|morgen)\s+)?(\d{1,2}):(\d{2})", v, re.I):
             z = ZoneInfo(default_tz())
             now = datetime.now(z)
-            h, mi = map(int, v.split(":"))
+            day, h, mi = (m.group(1) or "").lower(), int(m.group(2)), int(m.group(3))
             dt = now.replace(hour=h, minute=mi, second=0, microsecond=0)
-            if dt < now - timedelta(minutes=5):
+            if day in ("tomorrow", "morgen"):
                 dt += timedelta(days=1)
+            elif not day and dt < now - timedelta(minutes=5):
+                dt += timedelta(days=1)  # bare HH:MM already past -> next occurrence
         else:
             try:
                 dt = datetime.fromisoformat(v)
@@ -325,9 +340,7 @@ def build_route_request(origin, destination, *, intermediates=None, travel_mode=
                         region=None, optimize_waypoint_order=False, polyline=False,
                         polyline_quality=None, geojson=False, extra_computations=None,
                         reference_routes=None, extra_request=None) -> tuple[dict, list[str]]:
-    mode = travel_mode.upper()
-    if mode not in TRAVEL_MODES:
-        raise ValueError(f"travel_mode must be one of {TRAVEL_MODES}")
+    mode = norm_mode(travel_mode)
     notes: list[str] = []
     dep = parse_time(departure_time)
     arr = parse_time(arrival_time)
@@ -411,6 +424,87 @@ def _route_mask(mode: str, detail: str, body: dict) -> str:
     return ",".join(f)
 
 
+# ------------------------------------------------------------------ waypoint repair
+_place_cache: dict[tuple[str, str | None], dict | None] = {}
+
+
+_place_locks: dict = {}
+_place_locks_guard = threading.Lock()
+
+
+def resolve_place(text: str, language: str | None = None) -> dict | None:
+    """Best Places (New) match for a free-text place -> {id, name, address}; cached in-process.
+    A per-text lock makes parallel callers (compare_modes, matrix) share one lookup."""
+    key = (text.strip().lower(), language)
+    with _place_locks_guard:
+        lock = _place_locks.setdefault(key, threading.Lock())
+    with lock:
+        return _resolve_locked(key, text, language)
+
+
+def _resolve_locked(key, text, language):
+    if key not in _place_cache:
+        body = {"textQuery": text, "pageSize": 1}
+        lang = language or default_lang()
+        if lang:
+            body["languageCode"] = lang
+        raw = _send("POST", PLACES_SEARCH_URL, json=body, headers={
+            "X-Goog-FieldMask": "places.id,places.displayName,places.shortFormattedAddress,"
+                                "places.formattedAddress", "Content-Type": "application/json"})
+        p = (raw.get("places") or [None])[0]
+        _place_cache[key] = None if not p else {
+            "id": p["id"], "name": (p.get("displayName") or {}).get("text"),
+            "address": p.get("shortFormattedAddress") or p.get("formattedAddress")}
+    return _place_cache[key]
+
+
+def _partial_waypoints(raw: dict, body: dict) -> list[tuple[str, int | None, str]]:
+    """Address waypoints that Google's route geocoder only partially matched.  It resolves
+    e.g. 'Köln Hbf' to the city of Köln (partialMatch, type locality) and routes to the city
+    centre, which silently gives a wrong trip."""
+    gr = raw.get("geocodingResults") or {}
+    out = []
+    for role in ("origin", "destination"):
+        g = gr.get(role) or {}
+        if g.get("partialMatch") and "address" in body.get(role, {}):
+            out.append((role, None, body[role]["address"]))
+    for g in gr.get("intermediates") or []:
+        i = g.get("intermediateWaypointRequestIndex", 0)
+        w = (body.get("intermediates") or [])[i] if i < len(body.get("intermediates") or []) else {}
+        if g.get("partialMatch") and "address" in w:
+            out.append(("intermediates", i, w["address"]))
+    return out
+
+
+def _send_route(body: dict, mask: str) -> tuple[dict, list[str]]:
+    """POST computeRoutes; if an address was only partially matched, re-resolve it with
+    Places and retry once with the place_id."""
+    hdr = {"X-Goog-FieldMask": mask, "Content-Type": "application/json"}
+    raw = _send("POST", ROUTES_URL, json=body, headers=hdr)
+    if "geocodingResults" not in mask:
+        return raw, []
+    bad = _partial_waypoints(raw, body)
+    if not bad:
+        return raw, []
+    notes, body2 = [], copy.deepcopy(body)
+    for role, i, text in bad:
+        p = resolve_place(text, body.get("languageCode"))
+        if not p:
+            notes.append(f"'{text}' matched only partially (Google may route to a whole city/area); "
+                         "be more specific")
+            continue
+        w = {"placeId": p["id"], **({"via": True} if (body2[role][i] if i is not None else body2[role]).get("via") else {})}
+        if i is None:
+            body2[role] = w
+        else:
+            body2[role][i] = w
+        notes.append(f"'{text}' → {p['name']}, {p['address']} (route geocoder matched it only "
+                     "partially; resolved via Places)")
+    if body2 == body:
+        return raw, notes
+    return _send("POST", ROUTES_URL, json=body2, headers=hdr), notes
+
+
 def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRANSIT",
                    departure_time=None, arrival_time=None, alternatives=True, max_routes=None,
                    detail="brief", format="text", fields=None, dry_run=False, **opts):
@@ -428,26 +522,20 @@ def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRAN
     mask = fields or (FULL_ROUTE_FIELDS if format == "raw" else _route_mask(mode, detail, body))
     if dry_run:
         return {"url": ROUTES_URL, "field_mask": mask, "body": body, "notes": notes}
-    raw = _send("POST", ROUTES_URL, json=body,
-                headers={"X-Goog-FieldMask": mask, "Content-Type": "application/json"})
+    raw, fixed = _send_route(body, mask)
+    notes += fixed
     if format == "raw":
         return raw
     tz = default_tz()
     dep = parse_time(departure_time)
     arr = parse_time(arrival_time)
     anchor = arr or dep or now
-    routes = [S.summarize_route(r, tz=tz, mode=mode, depart_ref=None if arr else (dep or now),
-                                arrive_ref=arr, with_steps=detail == "steps")
-              for r in raw.get("routes", [])]
-    if mode == "TRANSIT":
-        # API order is not strictly by arrival; sort so option 1 is the best one
-        key = (lambda r: -(r.get("leave") or now).timestamp()) if arr else \
-              (lambda r: _by_arrival(r, now))
-        routes.sort(key=key)
+    routes, more = _postprocess(raw, mode, tz=tz, now=now, dep=dep, arr=arr,
+                                with_steps=detail == "steps",
+                                transit_modes=opts.get("transit_modes"))
+    notes += more
     if max_routes:
         routes = routes[:max_routes]
-    if not routes:
-        notes += S.geocoding_problems(raw)
     res = {"travel_mode": mode, "routes": routes, "notes": notes,
            "maps_url": maps_url(origin, destination, intermediates, mode),
            "_tz": tz,
@@ -455,6 +543,44 @@ def compute_routes(origin, destination, *, intermediates=None, travel_mode="TRAN
                       "via": [_label(i) for i in intermediates or []], "now": now,
                       "depart_at": dep, "arrive_by": arr, "anchor": anchor}}
     return R.routes_text(res) if format == "text" else _json(res)
+
+
+def _postprocess(raw: dict, mode: str, *, tz: str, now: datetime, dep, arr, with_steps=False,
+                 transit_modes=None) -> tuple[list[dict], list[str]]:
+    """Summarise, enforce transit modes, sort best-first, explain empty results."""
+    notes: list[str] = []
+    routes = [S.summarize_route(r, tz=tz, mode=mode, depart_ref=None if arr else (dep or now),
+                                arrive_ref=arr, with_steps=with_steps)
+              for r in raw.get("routes", [])]
+    if mode == "TRANSIT" and transit_modes:
+        # Google treats allowedTravelModes as a preference and still returns other vehicles
+        allowed = {m.upper() for m in transit_modes}
+        ok = [r for r in routes if S.uses_only(r, allowed)]
+        if len(ok) < len(routes):
+            if ok:
+                notes.append(f"dropped {len(routes) - len(ok)} option(s) using vehicles other than "
+                             f"{'/'.join(sorted(allowed))}")
+                routes = ok
+            else:
+                notes.append(f"no option uses only {'/'.join(sorted(allowed))}; showing what "
+                             "Google returned")
+    if mode == "TRANSIT":
+        # API order is not by arrival; sort so option 1 is the best one
+        routes.sort(key=(lambda r: -(r.get("leave") or now).timestamp()) if arr else
+                    (lambda r: _by_arrival(r, now)))
+    if not routes:
+        geo = S.geocoding_problems(raw)
+        notes += geo
+        if geo:
+            notes.append("tip: make the place specific (add the city, e.g. 'Hauptbahnhof, Bonn') "
+                         "or find it with search_places and pass 'place_id:...'")
+        elif mode == "TRANSIT" and (arr or dep or now) > now + timedelta(days=30):
+            notes.append("no transit data that far ahead; timetables are usually only published "
+                         "a few weeks in advance")
+        elif mode == "TRANSIT":
+            notes.append("no transit connection found for that time (no service, or out of the "
+                         "covered area); try another time or compare_modes")
+    return routes, notes
 
 
 def _by_arrival(r: dict, now: datetime) -> tuple:
@@ -472,12 +598,12 @@ def _json(res: dict) -> dict:
     return out
 
 
-def compare_modes(origin, destination, *, modes=("TRANSIT", "BICYCLE", "WALK", "DRIVE"),
+def compare_modes(origin, destination, *, modes=DEFAULT_COMPARE,
                   departure_time=None, arrival_time=None, format="text", **opts):
     """Same trip in several modes (requests run in parallel).  Ranked by earliest arrival,
     or, with arrival_time, by latest possible departure."""
     _check_format(format)
-    modes = [m.upper() for m in modes]
+    modes = list(dict.fromkeys(norm_mode(m) for m in modes))
     now = datetime.now(timezone.utc)
     arr = parse_time(arrival_time)
     dep = parse_time(departure_time)
@@ -488,16 +614,11 @@ def compare_modes(origin, destination, *, modes=("TRANSIT", "BICYCLE", "WALK", "
         body, n = build_route_request(origin, destination, travel_mode=m, alternatives=m == "TRANSIT",
                                       departure_time=departure_time,
                                       arrival_time=arrival_time if m == "TRANSIT" else None, **opts)
-        raw = _send("POST", ROUTES_URL, json=body, headers={
-            "X-Goog-FieldMask": _route_mask(m, "brief", body), "Content-Type": "application/json"})
-        rs = [S.summarize_route(r, tz=tz, mode=m, depart_ref=None if arr else (dep or now),
-                                arrive_ref=arr, with_steps=False) for r in raw.get("routes", [])]
-        if m == "TRANSIT" and rs:
-            rs.sort(key=(lambda r: -(r.get("leave") or now).timestamp()) if arr else
-                    (lambda r: _by_arrival(r, now)))
-        if not rs:
-            n = n + S.geocoding_problems(raw)
-        return m, rs, n, raw
+        raw, fixed = _send_route(body, _route_mask(m, "brief", body))
+        n = n + fixed
+        rs, more = _postprocess(raw, m, tz=tz, now=now, dep=dep, arr=arr,
+                                transit_modes=opts.get("transit_modes"))
+        return m, rs, n + more, raw
 
     results: dict = {}
     raws: dict = {}
@@ -509,7 +630,10 @@ def compare_modes(origin, destination, *, modes=("TRANSIT", "BICYCLE", "WALK", "
                 results[m] = {"best": rs[0] if rs else None,
                               "maps_url": maps_url(origin, destination, None, m)}
                 raws[m] = raw
-                notes += [f"{m}: {x}" for x in n]
+                for x in n:  # the same waypoint repair happens in every mode: say it once
+                    t = x if "resolved via Places" in x else f"{m}: {x}"
+                    if t not in notes:
+                        notes.append(t)
             except (GoogleMapsError, ValueError) as e:
                 results[modes[futs.index(f)]] = {"error": str(e)}
     if format == "raw":
@@ -536,11 +660,9 @@ def compute_route_matrix(origins: list, destinations: list, *, travel_mode="TRAN
                          transit_routing=None, routing_preference=None, traffic_model=None,
                          avoid=None, units="METRIC", language=None, region=None,
                          extra_computations=None, extra_request=None, fields=None,
-                         format="text", dry_run=False):
+                         format="text", dry_run=False, resolve_addresses=True):
     _check_format(format)
-    mode = travel_mode.upper()
-    if mode not in TRAVEL_MODES:
-        raise ValueError(f"travel_mode must be one of {TRAVEL_MODES}")
+    mode = norm_mode(travel_mode)
     dep, arr = parse_time(departure_time), parse_time(arrival_time)
     if dep and arr:
         raise ValueError("departure_time and arrival_time are mutually exclusive")
@@ -558,6 +680,23 @@ def compute_route_matrix(origins: list, destinations: list, *, travel_mode="TRAN
         "destinations": [{"waypoint": waypoint(d)} for d in destinations],
         "travelMode": mode, "units": units.upper(),
     }
+    # The matrix endpoint geocodes addresses like computeRoutes does ('Köln Hbf' -> city of
+    # Köln) but never reports partial matches, so resolve addresses with Places up front.
+    if not dry_run and resolve_addresses:
+        items = [e["waypoint"] for e in body["origins"] + body["destinations"]
+                 if "address" in e["waypoint"]]
+        texts = list(dict.fromkeys(w["address"] for w in items))
+        if texts:
+            with ThreadPoolExecutor(max_workers=min(8, len(texts))) as ex:
+                found = dict(zip(texts, ex.map(lambda t: resolve_place(t, language), texts)))
+            for w in items:
+                p = found.get(w["address"])
+                if p:
+                    w.pop("address")
+                    w["placeId"] = p["id"]
+            notes.append("resolved: " + "; ".join(
+                f"'{t}' → {found[t]['name']}" if found[t] else f"'{t}' → (no match, used as address)"
+                for t in texts))
     named = sum(1 for w in body["origins"] + body["destinations"]
                 if "address" in w["waypoint"] or "placeId" in w["waypoint"])
     if named > 50:
@@ -681,13 +820,13 @@ def search_places(text: str, *, near: str | None = None, radius_m: float = 3000,
         body["regionCode"] = region
     if extra_request:
         _deep_merge(body, extra_request)
-    mask = fields or (PLACES_DETAILED_FIELDS if detailed or min_rating or open_now
-                      else PLACES_BASIC_FIELDS)
+    mask = fields or (PLACES_DETAILED_FIELDS if detailed else PLACES_BASIC_FIELDS)
     if dry_run:
         return {"url": PLACES_SEARCH_URL, "field_mask": mask, "body": body}
     raw = _send("POST", PLACES_SEARCH_URL, json=body,
                 headers={"X-Goog-FieldMask": mask, "Content-Type": "application/json"})
     if format == "raw":
         return raw
-    res = {"query": text, "places": [S.summarize_place(p, center) for p in raw.get("places", [])]}
-    return R.places_text(res) if format == "text" else res
+    res = {"query": text, "places": [S.summarize_place(p, center) for p in raw.get("places", [])],
+           **({"open_now": True} if open_now else {})}
+    return R.places_text(res, default_tz()) if format == "text" else res

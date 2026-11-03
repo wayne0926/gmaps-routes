@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     r = sub.add_parser("route", help="A -> B (computeRoutes)")
     r.add_argument("origin"); r.add_argument("destination")
-    r.add_argument("--mode", default="TRANSIT", type=str.upper, choices=C.TRAVEL_MODES)
+    r.add_argument("--mode", default="TRANSIT", type=C.norm_mode, help="TRANSIT BICYCLE WALK DRIVE TWO_WHEELER (aliases: bike, car, ...)")
     r.add_argument("--via", nargs="*", help="intermediate stops (prefix 'via:' = pass through)")
     r.add_argument("--optimize", action="store_true", help="optimise intermediate order")
     r.add_argument("--no-alternatives", action="store_true")
@@ -57,13 +57,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     c = sub.add_parser("compare", help="same trip across modes (parallel)")
     c.add_argument("origin"); c.add_argument("destination")
-    c.add_argument("--modes", nargs="*", type=str.upper, default=["TRANSIT", "BICYCLE", "WALK", "DRIVE"])
+    c.add_argument("--modes", nargs="*", default=list(C.DEFAULT_COMPARE), help="default: TRANSIT BICYCLE WALK")
     _time(c); _opts(c); _fmt(c)
 
     m = sub.add_parser("matrix", help="many-to-many travel times")
     m.add_argument("--origins", nargs="+", required=True)
     m.add_argument("--destinations", nargs="+", required=True)
-    m.add_argument("--mode", default="TRANSIT", type=str.upper, choices=C.TRAVEL_MODES)
+    m.add_argument("--mode", default="TRANSIT", type=C.norm_mode)
     m.add_argument("--fields"); m.add_argument("--dry-run", action="store_true")
     _time(m); _opts(m); _fmt(m)
 

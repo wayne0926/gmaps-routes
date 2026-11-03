@@ -37,13 +37,19 @@ Tools (all read-only):
 gmaps-routes route "Bonn, Kaiserplatz" "Düren Bahnhof"                 # transit, now
 gmaps-routes route A B --arrive 2026-11-04T09:00 --transit-pref FEWER_TRANSFERS
 gmaps-routes route A B --mode BICYCLE --steps                           # turn-by-turn
-gmaps-routes compare A B --arrive 08:45                                 # latest departure per mode
+gmaps-routes compare A B --arrive "tomorrow 08:45"                      # latest departure per mode
+gmaps-routes compare A B --modes transit bike car                       # default: transit bike walk
 gmaps-routes matrix --origins A B --destinations C D --mode BICYCLE
 gmaps-routes places "Bäckerei" --near 50.7323,7.0969 --detailed --open-now
 gmaps-routes route A B --dry-run                                        # request only, no network
 ```
-Each command also accepts `--json` or `--raw`. Times can be ISO (naive means `GMAPS_TZ`), `HH:MM` (the next
-occurrence), `+45m`, or omitted for now.
+Each command also accepts `--json` or `--raw`. Times can be:
+- ISO (naive means `GMAPS_TZ`)
+- `HH:MM` (the next occurrence), `today HH:MM`, `tomorrow HH:MM`
+- `+45m`
+- omitted, which means now
+
+Modes accept aliases such as `bike`, `car` and `walking`.
 
 Example output (live, 2026-11-03):
 ```
@@ -73,8 +79,23 @@ WALK     10:50 → 17:16 (6 h 26 min) · 28.4 km
 - **TRANSIT with intermediate stops**: the API does not support it, so it is rejected locally. Route each
   leg separately.
 - **Transit matrix**: durations exclude the initial wait.
-- **Unresolvable addresses**: these come back as a note (from `geocodingResults`) instead of a silent
-  "no route".
+- **Partially matched places**: the Routes API's own geocoder resolves some common inputs to a whole
+  city, for example `Köln Hbf` and `Flughafen Köln/Bonn`. It then routes to the city centre without
+  any error, which gives a plausible but wrong trip (Bonn → "Köln Hbf" came out as 22 min to Köln Süd).
+  - `compute_route` and `compare_modes` detect `partialMatch` in `geocodingResults`, resolve the text
+    with Places (cached per process), retry with the `place_id`, and say so in a note.
+  - The matrix endpoint never reports partial matches, so `compute_route_matrix` resolves every
+    address with Places up front.
+  - This costs one extra Places Text Search (Pro SKU) per distinct text.
+- **Unresolvable addresses**: these come back as a note with a hint, instead of a silent "no route".
+  Transit queries with no result also get a hint: a time too far ahead (timetables aren't published
+  yet) or no service at that time.
+- **`transit_modes`**: Google treats this as a preference and still returns other vehicles.
+  Options that use other vehicles are dropped, and a note says how many.
+- **Walk-only results**: when walking is faster than any connection, Google returns a walk-only
+  "transit" route. It is shown as `walk only`.
+- **`compare` modes**: `compare` defaults to TRANSIT, BICYCLE and WALK. DRIVE is opt-in because
+  traffic-aware driving bills as Pro.
 
 ## Performance (measured from a cloud container, Bonn queries, 2026-11-03)
 | | old version | now |

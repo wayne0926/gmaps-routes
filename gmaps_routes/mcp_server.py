@@ -28,7 +28,7 @@ mcp = _Server(
         "bike vs walk vs drive, ranked by arrival (or latest departure for arrive-by). "
         "compute_route_matrix: many origins x destinations. search_places: find a place near "
         "lat,lng; pass its 'place_id:...' as a waypoint. Times: ISO-8601 (naive = local time "
-        f"{C.default_tz()}), 'HH:MM', '+30m', or omit for now. arrival_time ('arrive by') "
+        f"{C.default_tz()}), 'HH:MM', 'tomorrow HH:MM', '+30m', or omit for now. arrival_time ('arrive by') "
         "works for TRANSIT; compare_modes back-computes it for the other modes. Times in the "
         "output are local. TRANSIT cannot take intermediate stops: route each leg."))
 
@@ -82,10 +82,11 @@ def compare_modes(
     transit_modes: list[str] | None = None, transit_routing: str | None = None,
     language: str | None = None, format: str = "text",
 ) -> str:
-    """Same trip in several modes at once (default TRANSIT, BICYCLE, WALK, DRIVE), best route
-    each, ranked by earliest arrival, or by latest departure when arrival_time is given."""
+    """Same trip in several modes at once (default TRANSIT, BICYCLE, WALK; add DRIVE if
+    relevant), best route each, ranked by earliest arrival, or by latest departure when
+    arrival_time is given."""
     return _out(C.compare_modes, origin, destination,
-                modes=tuple(modes or ("TRANSIT", "BICYCLE", "WALK", "DRIVE")),
+                modes=tuple(modes or C.DEFAULT_COMPARE),
                 departure_time=departure_time, arrival_time=arrival_time,
                 transit_modes=transit_modes, transit_routing=transit_routing,
                 language=language, format=format)
@@ -101,7 +102,8 @@ def compute_route_matrix(
 ) -> str:
     """Travel time and distance for every origin x destination pair. Limits: 100 elements
     for TRANSIT, 625 otherwise; at most 50 origins+destinations given as address/place_id.
-    TRANSIT durations exclude the initial wait."""
+    TRANSIT durations exclude the initial wait. Addresses are resolved via Places first
+    (one lookup per distinct address, cached)."""
     return _out(C.compute_route_matrix, origins, destinations, travel_mode=travel_mode,
                 departure_time=departure_time, arrival_time=arrival_time,
                 transit_modes=transit_modes, transit_routing=transit_routing, avoid=avoid,
